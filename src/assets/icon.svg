@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="74.752 74.752 362.496 362.496" style="max-height: 500px" width="362.496" height="362.496">
+  <defs>
+    
+    <linearGradient gradientUnits="userSpaceOnUse" y2="436" x2="436" y1="76" x1="76" id="bg">
+      <stop stop-color="#18212B" offset="0%"/>
+      <stop stop-color="#0F1821" offset="48%"/>
+      <stop stop-color="#091018" offset="100%"/>
+    </linearGradient>
+
+    
+    <radialGradient gradientTransform="translate(192 150) rotate(35) scale(240 220)" gradientUnits="userSpaceOnUse" r="1" cy="0" cx="0" id="bgGlow">
+      <stop stop-opacity="0.26" stop-color="#243446" offset="0%"/>
+      <stop stop-opacity="0" stop-color="#243446" offset="100%"/>
+    </radialGradient>
+
+    
+    <linearGradient gradientUnits="userSpaceOnUse" y2="326" x2="307" y1="148" x1="205" id="vGrad">
+      <stop stop-color="#F5F8FB" offset="0%"/>
+      <stop stop-color="#D3DCE5" offset="100%"/>
+    </linearGradient>
+
+    
+    <linearGradient gradientUnits="userSpaceOnUse" y2="150" x2="256" y1="320" x1="256" id="mountainGrad">
+      <stop stop-color="#B94141" offset="0%"/>
+      <stop stop-color="#8A5B78" offset="45%"/>
+      <stop stop-color="#4D6FB3" offset="100%"/>
+    </linearGradient>
+
+    
+    <filter height="140%" width="140%" y="-20%" x="-20%" id="tileShadow">
+      <feDropShadow flood-opacity="0.32" flood-color="#000000" stdDeviation="24" dy="20" dx="0"/>
+    </filter>
+
+    
+    <filter height="140%" width="140%" y="-20%" x="-20%" id="softBlur">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+
+    <clipPath id="cardClip">
+      <rect rx="96" height="360" width="360" y="76" x="76"/>
+    </clipPath>
+  </defs>
+
+  
+  <g filter="url(#tileShadow)">
+    <rect fill="url(#bg)" rx="96" height="360" width="360" y="76" x="76"/>
+    <rect fill="url(#bgGlow)" rx="96" height="360" width="360" y="76" x="76"/>
+    <rect stroke-opacity="0.05" stroke="white" rx="95" height="358" width="358" y="77" x="77"/>
+  </g>
+
+  
+  <g clip-path="url(#cardClip)">
+    
+    <g filter="url(#softBlur)" opacity="0.48">
+      <path fill="url(#mountainGrad)" d="M118 338&#10;           C140 330 156 315 176 296&#10;           C193 279 207 255 224 232&#10;           C238 214 247 195 256 176&#10;           C266 195 276 216 291 235&#10;           C308 257 322 278 340 295&#10;           C360 314 378 328 394 338&#10;           L394 436&#10;           L118 436&#10;           Z"/>
+    </g>
+
+    
+    <g opacity="0.22">
+      <path stroke-linejoin="round" stroke-linecap="round" stroke-width="8" stroke="url(#mountainGrad)" d="M136 320C162 308 182 284 202 258C221 233 237 207 256 176C275 209 289 233 310 258C331 285 352 306 376 320"/>
+      <path opacity="0.7" stroke-linejoin="round" stroke-linecap="round" stroke-width="5" stroke="url(#mountainGrad)" d="M156 342C182 328 205 298 225 270C238 251 247 235 256 220C266 235 275 250 289 268C309 297 331 326 356 342"/>
+    </g>
+  </g>
+
+  
+  <path stroke-linejoin="round" stroke-linecap="round" stroke-width="36" stroke="url(#vGrad)" d="M196 156L241 292C246 307 251 314 256 314C261 314 266 307 271 292L316 156"/>
+</svg>
