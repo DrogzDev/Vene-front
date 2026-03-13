@@ -1,6 +1,6 @@
 import type { PricesHomeResponse } from "../types/prices"
 
-const API_BASE = "http://127.0.0.1:8000/api"
+const API_BASE = import.meta.env.VITE_API_URL
 
 export async function getHomePrices() {
   const response = await fetch(`${API_BASE}/prices/home/`)
