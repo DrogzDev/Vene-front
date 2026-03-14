@@ -16,7 +16,7 @@ export default function DonationsModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-[32px] border border-slate-200 bg-[#f8f9fb] p-5 text-slate-900 shadow-[0_20px_60px_rgba(15,23,42,0.16)] sm:p-6"
+        className="w-full max-w-md rounded-[32px] border border-slate-200 bg-[#f8f9fb] p-5 text-slate-900 shadow-[0_20px_60px_rgba(15,23,42,0.16)] sm:p-6 animate-[fadeIn_.18s_ease-out]"
       >
         <div className="mb-4 flex justify-center sm:hidden">
           <div className="h-1.5 w-12 rounded-full bg-slate-300" />

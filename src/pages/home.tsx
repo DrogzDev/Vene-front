@@ -194,7 +194,7 @@ export default function Home() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)]">
         <img
-          src="./icon.png"
+          src="./icon.svg"
           alt="Loading..."
           className="h-14 w-14 animate-spin rounded-2xl"
         />
