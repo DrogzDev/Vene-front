@@ -12,6 +12,7 @@ import {
 } from "../services/pricesApi"
 import type { DailyCloseHistoryItem, PricesHomeData } from "../types/prices"
 import { formatBs, formatDate, formatPercent } from "../utils/format"
+import icon from "../assets/icon.svg"
 
 function toDateKey(date: Date) {
   const year = date.getFullYear()
@@ -194,7 +195,7 @@ export default function Home() {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)]">
         <img
-          src="./icon.svg"
+          src={icon}
           alt="Loading..."
           className="h-14 w-14 animate-spin rounded-2xl"
         />
