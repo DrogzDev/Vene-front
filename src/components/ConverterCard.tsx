@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 
-type ConverterMode = "USD" | "EUR" | "USDT" | "CUSTOM"
+type ConverterMode = "USD" | "EUR" | "USDT" | "AVERAGE" | "CUSTOM"
 
 type ConverterCardProps = {
   usdRate: number
   eurRate: number
   usdtRate: number
+  averageRate: number
 }
 
 const CUSTOM_RATE_STORAGE_KEY = "vex_custom_rate"
@@ -14,6 +15,7 @@ export default function ConverterCard({
   usdRate,
   eurRate,
   usdtRate,
+  averageRate,
 }: ConverterCardProps) {
   const [amount, setAmount] = useState("1")
   const [mode, setMode] = useState<ConverterMode>("USD")
@@ -34,10 +36,11 @@ export default function ConverterCard({
     if (mode === "USD") return usdRate
     if (mode === "EUR") return eurRate
     if (mode === "USDT") return usdtRate
+    if (mode === "AVERAGE") return averageRate
 
     const parsed = Number(customRate)
     return parsed > 0 ? parsed : 0
-  }, [mode, usdRate, eurRate, usdtRate, customRate])
+  }, [mode, usdRate, eurRate, usdtRate, averageRate, customRate])
 
   const numericAmount = Number(amount) || 0
   const bs = numericAmount * rate
@@ -54,12 +57,13 @@ export default function ConverterCard({
       <div className="pointer-events-none absolute bottom-0 left-1/2 h-20 w-[100%] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(138,44,58,0.10)_0%,rgba(91,61,108,0.06)_45%,rgba(18,24,32,0)_100%)] blur-xl" />
 
       <div className="relative z-10">
-        <div className="mb-3 flex flex-wrap gap-1">
+        <div className="mb-4 flex flex-wrap justify-center gap-2">
           {(
             [
               { key: "USD", label: "Dólar" },
               { key: "EUR", label: "Euro" },
               { key: "USDT", label: "USDT" },
+              { key: "AVERAGE", label: "Promedio" },
               { key: "CUSTOM", label: "Personalizada" },
             ] as const
           ).map((item) => {
@@ -69,10 +73,10 @@ export default function ConverterCard({
               <button
                 key={item.key}
                 onClick={() => setMode(item.key)}
-                className={`rounded-full px-2.5 py-1 text-[9px] font-semibold transition-all duration-200 ${
+                className={`rounded-xl px-3 py-1.5 text-[10px] font-medium transition-all duration-200 ${
                   active
-                    ? "border border-[#6d7d90] bg-[#74869a] text-white shadow-[0_4px_12px_rgba(116,134,154,0.15)]"
-                    : "border border-[#27313d] bg-[#151b23]/90 text-[#8d9aa8] hover:border-[#344150] hover:bg-[#1a212b] hover:text-[#d9e1e8]"
+                    ? "bg-gradient-to-r from-[#4a5568] to-[#2d3748] text-white shadow-[0_4px_16px_rgba(74,85,104,0.25)] border border-[#4a5568]/50"
+                    : "bg-[#1a1f2e]/60 text-[#94a3b8] border border-[#2d3748]/30 hover:bg-[#2d3748]/40 hover:text-[#e2e8f0] hover:border-[#4a5568]/50"
                 }`}
               >
                 {item.label}
@@ -81,18 +85,18 @@ export default function ConverterCard({
           })}
         </div>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           <div>
-            <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#7f8b98]">
+            <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#64748b]">
               Tengo ({mode === "CUSTOM" ? "Bs por unidad" : mode})
             </p>
 
-            <div className="rounded-lg border border-[#2d3844] bg-[#171d25]/88 px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm">
+            <div className="rounded-lg border border-[#2d3748]/40 bg-[#0f1419]/80 px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm">
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-transparent text-xl font-semibold text-[#eef2f6] outline-none placeholder:text-[#556170]"
+                className="w-full bg-transparent text-lg font-semibold text-[#f1f5f9] outline-none placeholder:text-[#475569]"
                 placeholder="0"
               />
             </div>
@@ -100,33 +104,33 @@ export default function ConverterCard({
 
           {mode === "CUSTOM" ? (
             <div>
-              <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#7f8b98]">
+              <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#64748b]">
                 Tasa personalizada
               </p>
 
-              <div className="rounded-lg border border-[#2d3844] bg-[#171d25]/88 px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm">
+              <div className="rounded-lg border border-[#2d3748]/40 bg-[#0f1419]/80 px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm">
                 <input
                   type="number"
                   value={customRate}
                   onChange={(e) => setCustomRate(e.target.value)}
-                  className="w-full bg-transparent text-lg font-semibold text-[#eef2f6] outline-none placeholder:text-[#556170]"
+                  className="w-full bg-transparent text-base font-semibold text-[#f1f5f9] outline-none placeholder:text-[#475569]"
                   placeholder="Ej: 72.50"
                 />
               </div>
 
-              <p className="mt-1 text-[9px] text-[#7f8b98]">
+              <p className="mt-1 text-[8px] text-[#64748b]">
                 Esta tasa se guarda en la app.
               </p>
             </div>
           ) : null}
 
           <div>
-            <p className="mb-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-[#7f8b98]">
+            <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#64748b]">
               Recibo (Bs)
             </p>
 
-            <div className="rounded-lg border border-[#31404d] bg-[#171d25]/92 px-2.5 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] backdrop-blur-sm">
-              <p className="text-xl font-semibold text-[#eef2f6]">
+            <div className="rounded-lg border border-[#2d3748]/40 bg-[#0f1419]/80 px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm">
+              <p className="text-lg font-semibold text-[#f1f5f9]">
                 Bs {bs.toFixed(2)}
               </p>
             </div>
