@@ -221,104 +221,104 @@ export default function Home() {
   if (!data || !displayData) return null
 
   return (
-    <>
-      <main className="min-h-screen bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)] text-[#e7e9ee]">
-        <div className="mx-auto w-full max-w-sm px-4 py-7">
-          <Header onLogoClick={() => setDonationsOpen(true)} />
+  <>
+    <main className="min-h-screen bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)] text-[#e7e9ee]">
+      <div className="mx-auto w-full max-w-sm px-4 py-7">
+        <Header onLogoClick={() => setDonationsOpen(true)} />
 
-          {usingCache && !historicalItem && (
-            <div className="mt-4 rounded-2xl border border-[#3a3340] bg-[#1a1820] px-4 py-3 text-xs text-[#c9b7d9]">
-              Mostrando datos guardados{cachedAt ? ` · cacheado ${formatDate(cachedAt)}` : ""}
+        {usingCache && !historicalItem && (
+          <div className="mt-4 rounded-2xl border border-[#3a3340] bg-[#1a1820] px-4 py-3 text-xs text-[#c9b7d9] break-words">
+            Mostrando datos guardados{cachedAt ? ` · cacheado ${formatDate(cachedAt)}` : ""}
+          </div>
+        )}
+
+        {error && <p className="mt-3 text-xs text-red-400 break-words">{error}</p>}
+
+        <div className="mt-6">
+          <ConverterCard
+            usdRate={displayData.bcv.USD}
+            eurRate={displayData.bcv.EUR}
+            usdtRate={displayData.binance_best_price}
+            averageRate={displayData.average_price}
+          />
+        </div>
+
+        <section className="mt-8">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-lg font-semibold text-[#e7e9ee] truncate">Todas las tasas</h2>
+              <p className="mt-1 text-xs text-[#7f8694] truncate">
+                Última actualización: {formatDate(displayData.updated_at)}
+              </p>
+            </div>
+
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="rounded-full border border-[#2a2f38] bg-[#1a1d24] px-4 py-2 text-xs font-medium text-[#d7dbe3] transition hover:bg-[#252b35] disabled:opacity-60 shrink-0"
+            >
+              {refreshing ? "Actualizando..." : "Actualizar"}
+            </button>
+          </div>
+
+          {/* Las tarjetas en una sola columna (como antes) */}
+          <div className="space-y-3">
+            {rates.map((item) => (
+              <RateCard
+                key={item.title}
+                title={item.title}
+                price={item.price}
+                rate={item.rate}
+                change={item.change}
+                changeColor={item.changeColor}
+                updatedAt={formatDate(displayData.updated_at)}
+                onClick={item.title === "USDT" ? () => setModalOpen(true) : undefined}
+              />
+            ))}
+          </div>
+
+          <HistoryDatePicker
+            selectedDate={selectedDate}
+            onConfirm={handleHistoricalDateConfirm}
+            availableDates={availableDates}
+            loading={historyLoading}
+          />
+
+          {selectedDate && (
+            <div className="mt-3 flex justify-center">
+              <button
+                type="button"
+                onClick={clearHistoricalView}
+                className="text-xs text-[#8c98a5] transition hover:text-white"
+              >
+                Volver a tiempo real
+              </button>
             </div>
           )}
 
-          {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+          {historyError && (
+            <p className="mt-3 text-center text-xs text-amber-400 break-words">{historyError}</p>
+          )}
+        </section>
+      </div>
+    </main>
 
-          <div className="mt-6">
-            <ConverterCard
-              usdRate={displayData.bcv.USD}
-              eurRate={displayData.bcv.EUR}
-              usdtRate={displayData.binance_best_price}
-              averageRate={displayData.average_price}
-            />
-          </div>
+    <UsdtModal
+      isOpen={modalOpen}
+      onClose={() => setModalOpen(false)}
+      offers={data.binance_simple.map((offer) => ({
+        nickName: offer.nickName,
+        price: offer.price,
+        userIdentity: offer.identity || "",
+        payTypes: offer.payTypes,
+      }))}
+      bestPrice={data.binance_best_price}
+    />
 
-          <section className="mt-8">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-[#e7e9ee]">Todas las tasas</h2>
-                <p className="mt-1 text-xs text-[#7f8694]">
-                  Última actualización: {formatDate(displayData.updated_at)}
-                </p>
-              </div>
-
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="rounded-full border border-[#2a2f38] bg-[#1a1d24] px-4 py-2 text-xs font-medium text-[#d7dbe3] disabled:opacity-60"
-              >
-                {refreshing ? "Actualizando..." : "Actualizar"}
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {rates.map((item) => (
-                <RateCard
-                  key={item.title}
-                  title={item.title}
-                  price={item.price}
-                  rate={item.rate}
-                  change={item.change}
-                  changeColor={item.changeColor}
-                  updatedAt={formatDate(displayData.updated_at)}
-                  onClick={item.title === "USDT" ? () => setModalOpen(true) : undefined}
-                />
-              ))}
-            </div>
-
-            <HistoryDatePicker
-              selectedDate={selectedDate}
-              onConfirm={handleHistoricalDateConfirm}
-              availableDates={availableDates}
-              loading={historyLoading}
-            />
-
-            {selectedDate && (
-              <div className="mt-3 flex justify-center">
-                <button
-                  type="button"
-                  onClick={clearHistoricalView}
-                  className="text-xs text-[#8c98a5] transition hover:text-white"
-                >
-                  Volver a tiempo real
-                </button>
-              </div>
-            )}
-
-            {historyError && (
-              <p className="mt-3 text-center text-xs text-amber-400">{historyError}</p>
-            )}
-          </section>
-        </div>
-      </main>
-
-      <UsdtModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        offers={data.binance_simple.map((offer) => ({
-          nickName: offer.nickName,
-          price: offer.price,
-          userIdentity: offer.identity || "",
-          payTypes: offer.payTypes,
-        }))}
-        bestPrice={data.binance_best_price}
-      />
-
-      {/* Modal de donaciones */}
-      <DonationsModal
-        isOpen={donationsOpen}
-        onClose={() => setDonationsOpen(false)}
-      />
-    </>
-  )
+    <DonationsModal
+      isOpen={donationsOpen}
+      onClose={() => setDonationsOpen(false)}
+    />
+  </>
+)
 }
