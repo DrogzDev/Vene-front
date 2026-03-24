@@ -7,6 +7,7 @@ type ConverterCardProps = {
   eurRate: number
   usdtRate: number
   averageRate: number
+  onCustomModeChange?: (isCustom: boolean) => void
 }
 
 const CUSTOM_RATE_STORAGE_KEY = "vex_custom_rate"
@@ -16,10 +17,15 @@ export default function ConverterCard({
   eurRate,
   usdtRate,
   averageRate,
+  onCustomModeChange,
 }: ConverterCardProps) {
   const [amount, setAmount] = useState("1")
   const [mode, setMode] = useState<ConverterMode>("USD")
   const [customRate, setCustomRate] = useState("")
+
+  useEffect(() => {
+    onCustomModeChange?.(mode === "CUSTOM")
+  }, [mode, onCustomModeChange])
 
   useEffect(() => {
     const savedRate = localStorage.getItem(CUSTOM_RATE_STORAGE_KEY)
@@ -46,7 +52,7 @@ export default function ConverterCard({
   const bs = numericAmount * rate
 
   return (
-    <section className="relative left-1/2 w-[min(90vw,26rem)] -translate-x-1/2 overflow-hidden rounded-[14px] border border-[#27313d] bg-gradient-to-br from-[#161c24] via-[#11161d] to-[#0c1117] p-3.5 shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
+    <section className="relative left-1/2 w-[min(90dvw,26rem)] -translate-x-1/2 overflow-hidden rounded-[14px] border border-[#27313d] bg-gradient-to-br from-[#161c24] via-[#11161d] to-[#0c1117] p-3.5 shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
       {/* glow superior suave */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(88,104,126,0.06),transparent_28%)]" />
 

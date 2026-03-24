@@ -19,10 +19,10 @@ export default function Header({ onLogoClick }: HeaderProps) {
         />
 
         <div>
-          <h1 className="text-[2rem] font-bold leading-none tracking-tight text-[#e7e9ee]">
+          <h1 className="text-[clamp(1.5rem,4dvw,2rem)] font-bold leading-none tracking-tight text-[#e7e9ee]">
             Venecambio
           </h1>
-          <p className="mt-1 text-[0.72rem] uppercase tracking-[0.18em] text-[#7f8694]">
+          <p className="mt-1 text-[clamp(0.6rem,2dvw,0.72rem)] uppercase tracking-[0.18em] text-[#7f8694]">
             Tasa libre de Venezuela
           </p>
         </div>

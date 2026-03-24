@@ -118,6 +118,7 @@ export default function HistoryDatePicker({
           className={`fixed inset-0 z-50 transition-all duration-300 ${
             visible ? "bg-black/35 backdrop-blur-md" : "bg-black/0 backdrop-blur-0"
           }`}
+          style={{ height: "100dvh" }}
           onClick={handleClose}
         >
           <div className="absolute inset-x-0 bottom-0 flex justify-center px-3 pb-3 sm:pb-5">
@@ -216,6 +217,7 @@ export default function HistoryDatePicker({
                       months: "flex justify-center",
                       month: "w-full",
                       caption: "hidden",
+                      caption_label: "hidden",
                       nav: "hidden",
                       month_grid: "w-full border-collapse",
                       weekdays: "mb-3 grid grid-cols-7 gap-y-1",
@@ -224,40 +226,27 @@ export default function HistoryDatePicker({
                       week: "grid grid-cols-7 place-items-center",
                       day: "h-11 w-11",
                       day_button:
-                        "flex h-11 w-11 items-center justify-center rounded-full text-[17px] font-medium text-[#2c2d33] transition-colors duration-150",
-                      selected:
-                        "[&>button]:bg-black [&>button]:text-white [&>button]:shadow-none [&>button:hover]:bg-black [&>button:hover]:text-white",
-                      today:
-                        "[&>button]:border [&>button]:border-[#d7d9de] [&>button]:bg-white [&>button]:text-[#2c2d33]",
-                      outside: "[&>button]:text-[#c9ccd3]",
-                      disabled:
-                        "[&>button]:text-[#d4d7dd] [&>button]:opacity-100 [&>button]:cursor-not-allowed [&>button:hover]:bg-transparent [&>button:hover]:text-[#d4d7dd]",
-                    }}
-                    modifiersClassNames={{
-                      today: "",
-                      selected: "",
-                      disabled: "",
-                    }}
-                    modifiersStyles={{
-                      selected: {
-                        backgroundColor: "transparent",
-                      },
+                        "flex h-11 w-11 items-center justify-center rounded-full text-[17px] font-medium transition-colors duration-150",
                     }}
                     components={{
                       DayButton: ({ children, ...props }) => {
                         const isDisabled = Boolean(props.disabled)
                         const isSelected = Boolean(props.modifiers?.selected)
                         const isToday = Boolean(props.modifiers?.today)
+                        const isOutside = Boolean(props.modifiers?.outside)
 
                         let buttonClass =
                           "flex h-11 w-11 items-center justify-center rounded-full text-[17px] font-medium transition-colors duration-150"
 
                         if (isSelected) {
-                          buttonClass += " bg-black text-white"
+                          buttonClass += " bg-black text-white hover:bg-black hover:text-white"
                         } else if (isDisabled) {
                           buttonClass += " text-[#d4d7dd] cursor-not-allowed"
+                        } else if (isOutside) {
+                          buttonClass += " text-[#c9ccd3]"
                         } else if (isToday) {
-                          buttonClass += " border border-[#d7d9de] bg-white text-[#2c2d33] hover:bg-[#eef0f3]"
+                          buttonClass +=
+                            " border border-[#d7d9de] bg-white text-[#2c2d33] hover:bg-[#eef0f3]"
                         } else {
                           buttonClass += " text-[#2c2d33] hover:bg-black hover:text-white"
                         }

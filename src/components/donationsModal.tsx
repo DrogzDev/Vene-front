@@ -12,6 +12,7 @@ export default function DonationsModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-black/30 backdrop-blur-md px-3 pb-4 pt-10 sm:items-center sm:p-6"
+      style={{ height: '100dvh' }}
       onClick={onClose}
     >
       <div

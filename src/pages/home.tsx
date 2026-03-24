@@ -37,6 +37,7 @@ export default function Home() {
   const [historyError, setHistoryError] = useState("")
 
   const [donationsOpen, setDonationsOpen] = useState(false) // Estado para abrir el modal de donaciones
+  const [isCustomMode, setIsCustomMode] = useState(false) // Estado para rastrear el modo personalizado
 
   async function loadData() {
     try {
@@ -193,7 +194,7 @@ export default function Home() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)]">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)]">
         <img
           src={icon}
           alt="Loading..."
@@ -206,7 +207,7 @@ export default function Home() {
 
   if (error && !data) {
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)]">
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)]">
         <p className="text-sm text-red-400">{error}</p>
         <button
           onClick={loadData}
@@ -222,8 +223,8 @@ export default function Home() {
 
   return (
   <>
-    <main className="min-h-screen bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)] text-[#e7e9ee]">
-      <div className="mx-auto w-full max-w-sm px-4 py-7">
+    <main className="min-h-dvh bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)] text-[#e7e9ee]">
+      <div className="mx-auto w-full max-w-sm px-4 py-6">
         <Header onLogoClick={() => setDonationsOpen(true)} />
 
         {usingCache && !historicalItem && (
@@ -240,10 +241,11 @@ export default function Home() {
             eurRate={displayData.bcv.EUR}
             usdtRate={displayData.binance_best_price}
             averageRate={displayData.average_price}
+            onCustomModeChange={setIsCustomMode}
           />
         </div>
 
-        <section className="mt-8">
+        <section className="mt-6">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0 flex-1">
               <h2 className="text-lg font-semibold text-[#e7e9ee] truncate">Todas las tasas</h2>
@@ -277,12 +279,14 @@ export default function Home() {
             ))}
           </div>
 
-          <HistoryDatePicker
-            selectedDate={selectedDate}
-            onConfirm={handleHistoricalDateConfirm}
-            availableDates={availableDates}
-            loading={historyLoading}
-          />
+          {!isCustomMode && (
+            <HistoryDatePicker
+              selectedDate={selectedDate}
+              onConfirm={handleHistoricalDateConfirm}
+              availableDates={availableDates}
+              loading={historyLoading}
+            />
+          )}
 
           {selectedDate && (
             <div className="mt-3 flex justify-center">

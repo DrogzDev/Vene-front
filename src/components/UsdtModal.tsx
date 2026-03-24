@@ -41,6 +41,7 @@ export default function UsdtModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+      style={{ height: '100dvh' }}
       onClick={onClose}
     >
       <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
@@ -50,7 +51,7 @@ export default function UsdtModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-100">
+          <h3 className="text-[clamp(1rem,3dvw,1.125rem)] font-semibold text-slate-100">
             Ofertas USDT P2P
           </h3>
 
@@ -81,7 +82,7 @@ export default function UsdtModal({
           </span>
         </p>
 
-        <div className="max-h-96 space-y-3 overflow-y-auto pr-1">
+        <div className="max-h-[clamp(20rem,50dvh,24rem)] space-y-3 overflow-y-auto pr-1">
           {offers.map((offer, index) => (
             <div
               key={`${offer.nickName}-${index}`}
