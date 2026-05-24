@@ -5,15 +5,9 @@ const API_URL = import.meta.env.VITE_API_URL
 export type DollarAlert = {
   id: number
   alert_type: string
-  source: string
-  group_username: string
   telegram_message_id: number
   message_text: string
-  telegram_sent_at_utc: string
-  telegram_sent_at_ve: string
   telegram_sent_at_ve_pretty: string
-  detected_at: string
-  detected_at_ve: string
   detected_at_ve_pretty: string
   is_read: boolean
 }

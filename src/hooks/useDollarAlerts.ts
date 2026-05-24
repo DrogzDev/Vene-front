@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { DollarAlert } from "../services/alerts"
 import { getLatestAlert } from "../services/alerts"
 
@@ -9,8 +9,19 @@ export function useDollarAlerts() {
   const [hasNewAlert, setHasNewAlert] = useState(false)
   const [alertsError, setAlertsError] = useState("")
 
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const isPlayingRef = useRef(false)
+
   useEffect(() => {
     let intervalId: number
+
+    // Creamos el audio una sola vez
+    audioRef.current = new Audio("/sounds/bancamiga-alert.mp3")
+    audioRef.current.volume = 0.85
+
+    audioRef.current.addEventListener("ended", () => {
+      isPlayingRef.current = false
+    })
 
     async function checkAlert() {
       try {
@@ -48,11 +59,37 @@ export function useDollarAlerts() {
       }
     }
 
+    function playAlertSound() {
+      const audio = audioRef.current
+      if (!audio) return
+
+      // Si ya está sonando, no vuelvas a reproducirla encima
+      if (isPlayingRef.current) {
+        console.log("El sonido ya está sonando, no se repite.")
+        return
+      }
+
+      isPlayingRef.current = true
+      audio.currentTime = 0
+
+      audio.play().catch((error) => {
+        isPlayingRef.current = false
+        console.warn("El navegador bloqueó el sonido hasta que el usuario haga click:", error)
+      })
+    }
+
     checkAlert()
     intervalId = window.setInterval(checkAlert, 10000)
 
     return () => {
       window.clearInterval(intervalId)
+
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current.currentTime = 0
+      }
+
+      isPlayingRef.current = false
     }
   }, [])
 
@@ -66,15 +103,6 @@ export function useDollarAlerts() {
     alertsError,
     dismissAlert,
   }
-}
-
-function playAlertSound() {
-  const audio = new Audio("/sounds/bancamiga-alert.mp3")
-  audio.volume = 0.85
-
-  audio.play().catch((error) => {
-    console.warn("El navegador bloqueó el sonido hasta que el usuario haga click:", error)
-  })
 }
 
 function triggerDesktopNotification(alert: DollarAlert) {
