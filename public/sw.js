@@ -1,4 +1,4 @@
-self.addEventListener("install", function (event) {
+self.addEventListener("install", function () {
   self.skipWaiting()
 })
 
@@ -8,7 +8,7 @@ self.addEventListener("activate", function (event) {
 
 self.addEventListener("push", function (event) {
   let data = {
-    title: "🚨 BANCAMIGA detectado",
+    title: "🚨 Alerta bancaria detectada",
     body: "Nueva alerta disponible.",
     icon: "/icon.svg",
     badge: "/icon.svg",
@@ -27,21 +27,33 @@ self.addEventListener("push", function (event) {
     console.error("Error leyendo data del push:", error)
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon || "/icon.svg",
-    badge: data.badge || "/icon.svg",
-    tag: data.alert_id ? `bancamiga-alert-${data.alert_id}` : "bancamiga-alert",
-    renotify: true,
-    requireInteraction: true,
-    data: {
-      url: data.url || "/",
-      alert_id: data.alert_id,
-    },
-  }
-
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    (async function () {
+      const clientList = await clients.matchAll({
+        type: "window",
+        includeUncontrolled: true,
+      })
+
+      for (const client of clientList) {
+        client.postMessage({
+          type: "BANK_ALERT_PUSH_RECEIVED",
+          payload: data,
+        })
+      }
+
+      await self.registration.showNotification(data.title, {
+        body: data.body,
+        icon: data.icon || "/icon.svg",
+        badge: data.badge || "/icon.svg",
+        tag: data.alert_id ? `bank-alert-${data.alert_id}` : "bank-alert",
+        renotify: true,
+        requireInteraction: true,
+        data: {
+          url: data.url || "/",
+          alert_id: data.alert_id,
+        },
+      })
+    })()
   )
 })
 
@@ -60,6 +72,12 @@ self.addEventListener("notificationclick", function (event) {
         for (const client of clientList) {
           if ("focus" in client) {
             client.focus()
+
+            client.postMessage({
+              type: "BANK_ALERT_NOTIFICATION_CLICKED",
+              payload: event.notification.data,
+            })
+
             return
           }
         }

@@ -6,27 +6,29 @@ type AlertsModalProps = {
   onClose: () => void
   alerts: DollarAlert[]
   alertsEnabled: boolean
-  onEnableAlerts: () => void
-  onDisableAlerts: () => void
+  onEnableAlerts: () => void | Promise<void>
+  onDisableAlerts: () => void | Promise<void>
+  onEnableSound?: () => void | Promise<void>
   alertsError?: string
 }
 
 function formatAlertTime(alert: DollarAlert) {
-  return (
-    alert.telegram_sent_at_ve_pretty ||
-    alert.telegram_sent_at_ve ||
-    alert.telegram_sent_at_utc ||
-    ""
-  )
+  return alert.telegram_sent_at_ve_pretty || ""
 }
 
 function getFirstLine(text: string) {
   const firstLine = text.split("\n").find((line) => line.trim())
-  return firstLine || "BANCAMIGA"
+  return firstLine || "Alerta bancaria"
 }
 
 function cleanAlertText(text: string) {
   return text.trim()
+}
+
+function getAlertBankLabel(alertType: string) {
+  if (alertType === "bancamiga_intervention") return "Bancamiga"
+  if (alertType === "bdv_intervention") return "BDV"
+  return "Alerta"
 }
 
 export default function AlertsModal({
@@ -36,13 +38,36 @@ export default function AlertsModal({
   alertsEnabled,
   onEnableAlerts,
   onDisableAlerts,
+  onEnableSound,
   alertsError,
 }: AlertsModalProps) {
   const [allMessagesOpen, setAllMessagesOpen] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
 
   if (!isOpen) return null
 
   const latestAlert = alerts[0] || null
+
+  async function handleAlertsButtonClick() {
+    if (actionLoading) return
+
+    try {
+      setActionLoading(true)
+
+      if (alertsEnabled) {
+        await onDisableAlerts()
+        return
+      }
+
+      const soundPromise = onEnableSound ? onEnableSound() : Promise.resolve()
+
+      await onEnableAlerts()
+
+      await soundPromise
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   return (
     <>
@@ -64,7 +89,7 @@ export default function AlertsModal({
                 Último mensaje
               </p>
               <h2 className="mt-1 text-xl font-semibold tracking-tight text-white">
-                Alerta Bancamiga
+                Alerta bancaria
               </h2>
             </div>
 
@@ -101,14 +126,14 @@ export default function AlertsModal({
                   Todavía no hay alertas
                 </p>
                 <p className="mt-1 text-sm leading-6 text-[#8b92a0]">
-                  Cuando el backend detecte BANCAMIGA, aparecerá aquí.
+                  Cuando se detecte una intervención bancaria, aparecerá aquí.
                 </p>
               </div>
             ) : (
               <div className="rounded-[28px] border border-red-400/20 bg-red-500/[0.08] p-5">
                 <div className="mb-4 flex items-center justify-between gap-3">
                   <span className="rounded-full border border-red-400/20 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-red-200">
-                    Telegram
+                    {getAlertBankLabel(latestAlert.alert_type)}
                   </span>
 
                   <span className="rounded-full bg-black/20 px-2.5 py-1 text-[10px] font-medium text-red-100">
@@ -145,14 +170,21 @@ export default function AlertsModal({
 
               <button
                 type="button"
-                onClick={alertsEnabled ? onDisableAlerts : onEnableAlerts}
-                className={`rounded-full border px-4 py-3 text-sm font-semibold transition sm:col-span-1 ${
+                onClick={handleAlertsButtonClick}
+                disabled={actionLoading}
+                className={`rounded-full border px-4 py-3 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-60 sm:col-span-1 ${
                   alertsEnabled
                     ? "border-red-400/30 bg-red-500/10 text-red-100 hover:bg-red-500/20"
                     : "border-white/10 bg-white/[0.06] text-white hover:bg-white/[0.1]"
                 }`}
               >
-                {alertsEnabled ? "Desactivar alertas" : "Activar alertas"}
+                {actionLoading
+                  ? alertsEnabled
+                    ? "Desactivando..."
+                    : "Activando..."
+                  : alertsEnabled
+                    ? "Desactivar alertas"
+                    : "Activar alertas"}
               </button>
 
               <button
@@ -188,7 +220,7 @@ export default function AlertsModal({
                   Todos los mensajes
                 </h2>
                 <p className="mt-1 text-sm text-[#8b92a0]">
-                  {alerts.length} mensajes guardados de Bancamiga.
+                  {alerts.length} mensajes guardados.
                 </p>
               </div>
 

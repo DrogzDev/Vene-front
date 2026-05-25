@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import Header from "../components/Header"
 import ConverterCard from "../components/ConverterCard"
 import RateCard from "../components/RateCard"
@@ -27,6 +27,9 @@ import { formatBs, formatDate, formatPercent } from "../utils/format"
 import icon from "../assets/icon.svg"
 
 const ALERTS_ENABLED_KEY = "bancamiga_alerts_enabled"
+const ALERT_SOUND_ENABLED_KEY = "bancamiga_alert_sound_enabled"
+const ALERT_SOUND_URL = "/sounds/bancamiga-alert.mp3"
+const ALERTS_STARTUP_PROMPT_KEY = "bancamiga_alerts_startup_prompt_seen"
 
 function toDateKey(date: Date) {
   const year = date.getFullYear()
@@ -61,6 +64,65 @@ export default function Home() {
   const [alertsDisabling, setAlertsDisabling] = useState(false)
   const [alertsError, setAlertsError] = useState("")
   const [unreadCount, setUnreadCount] = useState(0)
+
+  const alertAudioRef = useRef<HTMLAudioElement | null>(null)
+  const lastSwAlertIdRef = useRef<number | string | null>(null)
+
+  function getAlertAudio() {
+    if (!alertAudioRef.current) {
+      alertAudioRef.current = new Audio(ALERT_SOUND_URL)
+      alertAudioRef.current.preload = "auto"
+      alertAudioRef.current.volume = 1
+    }
+
+    return alertAudioRef.current
+  }
+
+  async function enableAlertSound() {
+    try {
+      const audio = getAlertAudio()
+
+      audio.currentTime = 0
+
+      await audio.play()
+
+      audio.pause()
+      audio.currentTime = 0
+
+      localStorage.setItem(ALERT_SOUND_ENABLED_KEY, "true")
+
+      console.log("Sonido de alertas desbloqueado.")
+    } catch (err) {
+      console.warn("No se pudo desbloquear el sonido:", err)
+
+      localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
+
+      setAlertsError(
+        "Las alertas se activaron, pero el navegador bloqueó el sonido. En permisos del sitio cambia Sonido a Permitir."
+      )
+    }
+  }
+
+  function playAlertSound() {
+    const soundEnabled =
+      localStorage.getItem(ALERT_SOUND_ENABLED_KEY) === "true"
+
+    if (!soundEnabled) return
+
+    const audio = getAlertAudio()
+
+    audio.currentTime = 0
+
+    audio.play().catch((err) => {
+      console.warn("No se pudo reproducir el sonido de alerta:", err)
+
+      localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
+
+      setAlertsError(
+        "El navegador bloqueó el sonido. En permisos del sitio cambia Sonido a Permitir."
+      )
+    })
+  }
 
   async function loadData() {
     try {
@@ -178,6 +240,7 @@ export default function Home() {
 
       setAlertsEnabled(false)
       localStorage.removeItem(ALERTS_ENABLED_KEY)
+      localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
 
       setAlertsError(
         err instanceof Error
@@ -205,6 +268,7 @@ export default function Home() {
 
       setAlertsEnabled(false)
       localStorage.removeItem(ALERTS_ENABLED_KEY)
+      localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
     } catch (err) {
       console.warn("No se pudieron desactivar las alertas push:", err)
 
@@ -270,18 +334,26 @@ export default function Home() {
   }, [])
 
   useEffect(() => {
+    if (localStorage.getItem(ALERT_SOUND_ENABLED_KEY) === "true") {
+      getAlertAudio()
+    }
+  }, [])
+
+  useEffect(() => {
     let cancelled = false
 
     async function restorePushState() {
       if (!("Notification" in window)) {
         setAlertsEnabled(false)
         localStorage.removeItem(ALERTS_ENABLED_KEY)
+        localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
         return
       }
 
       if (Notification.permission !== "granted") {
         setAlertsEnabled(false)
         localStorage.removeItem(ALERTS_ENABLED_KEY)
+        localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
         return
       }
 
@@ -297,6 +369,7 @@ export default function Home() {
         } else {
           setAlertsEnabled(false)
           localStorage.removeItem(ALERTS_ENABLED_KEY)
+          localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
         }
       } catch (err) {
         if (cancelled) return
@@ -304,6 +377,7 @@ export default function Home() {
         console.warn("No se pudo restaurar el estado push:", err)
         setAlertsEnabled(false)
         localStorage.removeItem(ALERTS_ENABLED_KEY)
+        localStorage.removeItem(ALERT_SOUND_ENABLED_KEY)
       }
     }
 
@@ -311,6 +385,19 @@ export default function Home() {
 
     return () => {
       cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    const alreadyPrompted =
+      localStorage.getItem(ALERTS_STARTUP_PROMPT_KEY) === "true"
+
+    const alertsAlreadyEnabled =
+      localStorage.getItem(ALERTS_ENABLED_KEY) === "true"
+
+    if (!alreadyPrompted && !alertsAlreadyEnabled) {
+      setAlertsOpen(true)
+      localStorage.setItem(ALERTS_STARTUP_PROMPT_KEY, "true")
     }
   }, [])
 
@@ -323,6 +410,49 @@ export default function Home() {
 
     return () => {
       window.removeEventListener("focus", handleFocus)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return
+
+    function handleServiceWorkerMessage(event: MessageEvent) {
+      const message = event.data
+
+      if (!message || message.type !== "BANK_ALERT_PUSH_RECEIVED") {
+        return
+      }
+
+      const alertId =
+        message.payload?.alert_id ||
+        message.payload?.alertId ||
+        message.payload?.id ||
+        null
+
+      if (alertId && lastSwAlertIdRef.current === alertId) {
+        return
+      }
+
+      if (alertId) {
+        lastSwAlertIdRef.current = alertId
+      }
+
+      console.log("Push recibido desde Service Worker:", message.payload)
+
+      playAlertSound()
+      loadAlerts()
+    }
+
+    navigator.serviceWorker.addEventListener(
+      "message",
+      handleServiceWorkerMessage
+    )
+
+    return () => {
+      navigator.serviceWorker.removeEventListener(
+        "message",
+        handleServiceWorkerMessage
+      )
     }
   }, [])
 
@@ -433,6 +563,7 @@ export default function Home() {
             alertsEnabled={alertsEnabled}
             onEnableAlerts={enableDesktopAlerts}
             onDisableAlerts={disableDesktopAlerts}
+            onEnableSound={enableAlertSound}
             alertsError={
               alertsEnabling
                 ? "Activando notificaciones..."

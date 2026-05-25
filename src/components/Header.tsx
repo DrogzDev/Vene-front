@@ -11,8 +11,9 @@ type HeaderProps = {
 
   alerts: DollarAlert[]
   alertsEnabled: boolean
-  onEnableAlerts: () => void
-  onDisableAlerts: () => void
+  onEnableAlerts: () => void | Promise<void>
+  onDisableAlerts: () => void | Promise<void>
+  onEnableSound?: () => void | Promise<void>
   alertsError: string
   unreadCount: number
 }
@@ -26,6 +27,7 @@ export default function Header({
   alertsEnabled,
   onEnableAlerts,
   onDisableAlerts,
+  onEnableSound,
   alertsError,
   unreadCount,
 }: HeaderProps) {
@@ -65,10 +67,10 @@ export default function Header({
           }`}
           aria-label={
             alertsEnabled
-              ? "Alertas Bancamiga activas"
-              : "Abrir alertas Bancamiga"
+              ? "Alertas bancarias activas"
+              : "Abrir alertas bancarias"
           }
-          title={alertsEnabled ? "Alertas activas" : "Alertas Bancamiga"}
+          title={alertsEnabled ? "Alertas activas" : "Alertas bancarias"}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -108,6 +110,7 @@ export default function Header({
         alertsEnabled={alertsEnabled}
         onEnableAlerts={onEnableAlerts}
         onDisableAlerts={onDisableAlerts}
+        onEnableSound={onEnableSound}
         alertsError={alertsError}
       />
     </>
