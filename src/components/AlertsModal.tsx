@@ -13,7 +13,7 @@ type AlertsModalProps = {
 }
 
 function formatAlertTime(alert: DollarAlert) {
-  return alert.telegram_sent_at_ve_pretty || ""
+  return alert.detected_at_ve_pretty || ""
 }
 
 function getFirstLine(text: string) {
