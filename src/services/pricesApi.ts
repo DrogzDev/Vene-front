@@ -12,6 +12,11 @@ import type {
   P2PCandleInterval,
   P2PHistoryResponse,
   P2PHistorySummaryResponse,
+  P2PTimeframeKey,
+  P2PHistoryChartResponse,
+  P2PMarketStatusResponse,
+  P2PAnalysisRange,
+  P2PMarketAnalysisResponse,
 } from "../types/prices"
 import { getDeviceId } from "../utils/device"
 
@@ -439,4 +444,88 @@ export async function getP2PHistorySummary(range: P2PHistoryRange) {
 
     throw error
   }
+}
+
+// =========================================================
+// VISTA PROFESIONAL: TIMEFRAMES REALES + INDICADORES
+// =========================================================
+
+export async function getP2PTimeframeCandles(
+  range: P2PHistoryRange,
+  timeframe: P2PTimeframeKey,
+  options: { indicators?: string[]; signal?: AbortSignal } = {},
+) {
+  const params = new URLSearchParams({ range, timeframe })
+
+  if (options.indicators?.length) {
+    params.set("indicators", options.indicators.join(","))
+  }
+
+  const response = await fetch(`${API_BASE}/p2p/history/?${params.toString()}`, {
+    signal: options.signal,
+  })
+
+  if (!response.ok) {
+    throw new Error("No se pudo obtener el gráfico profesional de USDT P2P")
+  }
+
+  const data: P2PHistoryChartResponse = await response.json()
+
+  if (!data.ok) {
+    throw new Error("La API respondió con error en el gráfico de USDT P2P")
+  }
+
+  return data
+}
+
+export async function getP2PMarketStatus(options: { signal?: AbortSignal } = {}) {
+  const response = await fetch(`${API_BASE}/p2p/market-status/?side=SELL`, {
+    signal: options.signal,
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || !data?.ok) {
+    throw new MarketAnalysisError(
+      data?.error ?? "No se pudo obtener el estado del mercado P2P.",
+      data?.code ?? "error",
+      response.status,
+    )
+  }
+
+  return data as P2PMarketStatusResponse
+}
+
+export async function getP2PMarketAnalysis(
+  range: P2PAnalysisRange,
+  options: { refresh?: boolean; signal?: AbortSignal } = {},
+) {
+  const response = await fetch(`${API_BASE}/p2p/analysis/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Device-ID": getDeviceId(),
+    },
+    // El frontend solo dice qué analizar; Django construye el
+    // snapshot real y nunca confía en cifras enviadas desde aquí.
+    body: JSON.stringify({
+      source: "binance_p2p",
+      side: "SELL",
+      range,
+      refresh: options.refresh ?? false,
+    }),
+    signal: options.signal,
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || !data?.ok) {
+    throw new MarketAnalysisError(
+      data?.error ?? "No se pudo generar el análisis en este momento.",
+      data?.code ?? "error",
+      response.status,
+    )
+  }
+
+  return data as P2PMarketAnalysisResponse
 }

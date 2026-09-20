@@ -19,8 +19,13 @@ import type {
   P2PCandleInterval,
   P2PHistoryRange,
   P2PHistorySummary,
+  P2PViewMode,
 } from "../types/prices"
 import { formatBs, formatPercent } from "../utils/format"
+import { getStoredViewMode, setStoredViewMode } from "../utils/viewMode"
+import ViewModeToggle from "../components/p2pMarket/ViewModeToggle"
+import { ChevronLeftIcon } from "../components/priceHistory/icons"
+import UsdtAnalyzerPro from "./usdtAnalyzerPro"
 
 const RANGE_OPTIONS: { key: P2PHistoryRange; label: string }[] = [
   { key: "24h", label: "Día" },
@@ -176,6 +181,37 @@ function CustomHourTooltip({
 export default function UsdtAnalyzerPage() {
   const navigate = useNavigate()
 
+  const [viewMode, setViewMode] = useState<P2PViewMode>(() => getStoredViewMode())
+
+  function handleViewModeChange(mode: P2PViewMode) {
+    setViewMode(mode)
+    setStoredViewMode(mode)
+  }
+
+  if (viewMode === "pro") {
+    return (
+      <UsdtAnalyzerPro
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        onBack={() => navigate("/")}
+      />
+    )
+  }
+
+  return (
+    <UsdtAnalyzerSimple viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+  )
+}
+
+function UsdtAnalyzerSimple({
+  viewMode,
+  onViewModeChange,
+}: {
+  viewMode: P2PViewMode
+  onViewModeChange: (mode: P2PViewMode) => void
+}) {
+  const navigate = useNavigate()
+
   const [range, setRange] = useState<P2PHistoryRange>("7d")
   const [candles, setCandles] = useState<P2PCandle[]>([])
   const [hourCandles, setHourCandles] = useState<P2PCandle[]>([])
@@ -284,27 +320,20 @@ export default function UsdtAnalyzerPage() {
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#2a2f38] bg-[#171a21]/90 text-[#d7dbe3] transition hover:border-white/20 hover:bg-[#20252e] hover:text-white active:scale-95"
             aria-label="Volver"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-5 w-5"
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
+            <ChevronLeftIcon className="h-5 w-5" />
           </button>
 
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-bold text-[#e7e9ee]">Análisis USDT P2P</h1>
             <p className="truncate text-xs text-[#7f8694]">
               Fluctuación de venta en Binance y mejor hora para vender
             </p>
           </div>
         </header>
+
+        <div className="mt-4">
+          <ViewModeToggle value={viewMode} onChange={onViewModeChange} className="w-full" />
+        </div>
 
         <div className="mt-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-[#27313d] bg-[#151b23] p-1">
           {RANGE_OPTIONS.map((option) => (
