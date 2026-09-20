@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import Header from "../components/Header"
 import ConverterCard from "../components/ConverterCard"
 import RateCard from "../components/RateCard"
@@ -39,6 +40,8 @@ function toDateKey(date: Date) {
 }
 
 export default function Home() {
+  const navigate = useNavigate()
+
   const [data, setData] = useState<PricesHomeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -606,14 +609,60 @@ export default function Home() {
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="shrink-0 rounded-full border border-[#2a2f38] bg-[#1a1d24] px-4 py-2 text-xs font-medium text-[#d7dbe3] transition hover:bg-[#252b35] disabled:opacity-60"
-              >
-                {refreshing ? "Actualizando..." : "Actualizar"}
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/historial")}
+                  aria-label="Ver gráfica de historial"
+                  title="Ver gráfica de historial"
+                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-[#2a2f38] bg-[#1a1d24] text-[#d7dbe3] transition hover:bg-[#252b35]"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                  >
+                    <path d="M3 3v18h18" />
+                    <path d="M7 15l4-5 3 3 5-7" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => navigate("/usdt-analisis")}
+                  aria-label="Ver análisis de mejor hora para vender USDT"
+                  title="Ver análisis de mejor hora para vender USDT"
+                  className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-[#2a2f38] bg-[#1a1d24] text-[#d7dbe3] transition hover:bg-[#252b35]"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-4 w-4"
+                  >
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 7v5l3 2" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="shrink-0 rounded-full border border-[#2a2f38] bg-[#1a1d24] px-4 py-2 text-xs font-medium text-[#d7dbe3] transition hover:bg-[#252b35] disabled:opacity-60"
+                >
+                  {refreshing ? "Actualizando..." : "Actualizar"}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
