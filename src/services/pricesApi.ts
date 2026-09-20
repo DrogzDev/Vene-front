@@ -4,12 +4,16 @@ import type {
   DailyCloseHistoryResponse,
   DailyCloseHistoryItem,
   PriceChartRange,
+  PriceSource,
   PriceHistoryChartResponse,
+  MarketAnalysisResponse,
+  MarketAnalysisStatusResponse,
   P2PHistoryRange,
   P2PCandleInterval,
   P2PHistoryResponse,
   P2PHistorySummaryResponse,
 } from "../types/prices"
+import { getDeviceId } from "../utils/device"
 
 const API_BASE = import.meta.env.VITE_API_URL
 const HOME_PRICES_CACHE_KEY = "vex_home_prices_cache"
@@ -170,30 +174,48 @@ type CachedPriceChart = {
   cachedAt: string
 }
 
-function savePriceChartToCache(range: PriceChartRange, data: PriceHistoryChartResponse) {
+function priceChartCacheKey(range: PriceChartRange, source: PriceSource) {
+  return `${PRICE_CHART_CACHE_KEY_PREFIX}${range}_${source}`
+}
+
+function savePriceChartToCache(
+  range: PriceChartRange,
+  source: PriceSource,
+  data: PriceHistoryChartResponse,
+) {
   const payload: CachedPriceChart = {
     data,
     cachedAt: new Date().toISOString(),
   }
 
-  localStorage.setItem(`${PRICE_CHART_CACHE_KEY_PREFIX}${range}`, JSON.stringify(payload))
+  localStorage.setItem(priceChartCacheKey(range, source), JSON.stringify(payload))
 }
 
-function getCachedPriceChart(range: PriceChartRange): CachedPriceChart | null {
-  const raw = localStorage.getItem(`${PRICE_CHART_CACHE_KEY_PREFIX}${range}`)
+function getCachedPriceChart(
+  range: PriceChartRange,
+  source: PriceSource,
+): CachedPriceChart | null {
+  const raw = localStorage.getItem(priceChartCacheKey(range, source))
   if (!raw) return null
 
   try {
     return JSON.parse(raw) as CachedPriceChart
   } catch {
-    localStorage.removeItem(`${PRICE_CHART_CACHE_KEY_PREFIX}${range}`)
+    localStorage.removeItem(priceChartCacheKey(range, source))
     return null
   }
 }
 
-export async function getPriceHistoryChart(range: PriceChartRange) {
+export async function getPriceHistoryChart(
+  range: PriceChartRange,
+  source: PriceSource = "average",
+  options: { signal?: AbortSignal } = {},
+) {
   try {
-    const response = await fetch(`${API_BASE}/prices/history-chart/?range=${range}`)
+    const response = await fetch(
+      `${API_BASE}/prices/history-chart/?range=${range}&source=${source}`,
+      { signal: options.signal },
+    )
 
     if (!response.ok) {
       throw new Error("No se pudo obtener la gráfica de precios")
@@ -205,7 +227,7 @@ export async function getPriceHistoryChart(range: PriceChartRange) {
       throw new Error("La API respondió con error en la gráfica de precios")
     }
 
-    savePriceChartToCache(range, data)
+    savePriceChartToCache(range, source, data)
 
     return {
       data,
@@ -213,7 +235,12 @@ export async function getPriceHistoryChart(range: PriceChartRange) {
       cachedAt: null,
     }
   } catch (error) {
-    const cached = getCachedPriceChart(range)
+    // Una petición cancelada no debe caer al caché ni mostrar error.
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error
+    }
+
+    const cached = getCachedPriceChart(range, source)
 
     if (cached) {
       return {
@@ -225,6 +252,74 @@ export async function getPriceHistoryChart(range: PriceChartRange) {
 
     throw error
   }
+}
+
+// =========================================================
+// ANÁLISIS DE MERCADO CON IA
+// =========================================================
+
+/**
+ * Error con el mensaje ya preparado por Django. Nunca contiene
+ * trazas internas: el backend solo expone texto apto para el usuario.
+ */
+export class MarketAnalysisError extends Error {
+  code: string
+  status: number
+
+  constructor(message: string, code: string, status: number) {
+    super(message)
+    this.name = "MarketAnalysisError"
+    this.code = code
+    this.status = status
+  }
+}
+
+export async function getMarketAnalysisStatus(options: { signal?: AbortSignal } = {}) {
+  const response = await fetch(`${API_BASE}/prices/analysis/status/`, {
+    signal: options.signal,
+  })
+
+  if (!response.ok) {
+    throw new Error("No se pudo consultar el estado del análisis")
+  }
+
+  const data: MarketAnalysisStatusResponse = await response.json()
+
+  return data
+}
+
+export async function getMarketAnalysis(
+  range: PriceChartRange,
+  source: PriceSource,
+  options: { refresh?: boolean; signal?: AbortSignal } = {},
+) {
+  const response = await fetch(`${API_BASE}/prices/analysis/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Device-ID": getDeviceId(),
+    },
+    // El cuerpo solo dice QUÉ analizar. Los precios los lee Django
+    // de su propia base de datos.
+    body: JSON.stringify({
+      range,
+      source,
+      refresh: options.refresh ?? false,
+    }),
+    signal: options.signal,
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || !data?.ok) {
+    throw new MarketAnalysisError(
+      data?.error ?? "No se pudo generar el análisis en este momento.",
+      data?.code ?? "error",
+      response.status,
+    )
+  }
+
+  return data as MarketAnalysisResponse
 }
 
 const P2P_HISTORY_CACHE_KEY_PREFIX = "vex_p2p_history_cache_"
