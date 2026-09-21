@@ -142,6 +142,26 @@ body {
   animation: pulseSoft 1.6s ease-in-out infinite;
 }
 
+/* Cursor de generación del análisis IA.
+ *
+ * Solo parpadea mientras llegan tokens del modelo. La velocidad a la
+ * que aparece el texto es la del stream real: no se simula escritura
+ * después de haber recibido la respuesta completa. */
+@keyframes cursorBlink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+.animate-cursor-blink {
+  animation: cursorBlink 1.1s ease-in-out infinite;
+}
+
 /* El canvas de lightweight-charts nunca debe desbordar en móvil. */
 .tv-lightweight-charts {
   max-width: 100%;

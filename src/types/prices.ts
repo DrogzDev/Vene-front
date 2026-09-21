@@ -344,9 +344,159 @@ export type P2PMarketSnapshot = {
   alerts: P2PRapidDropAlert[]
 }
 
-export type P2PMarketStatusResponse = P2PMarketSnapshot & {
-  ok: boolean
+// =========================================================
+// MEJOR HORA OBSERVADA DEL DÍA
+// =========================================================
+
+/** Una franja horaria con su resumen. Django la calcula con MEDIANA,
+ *  para que un anuncio atípico no corone una hora que nunca estuvo
+ *  realmente disponible. */
+export type HourBucket = {
+  hour: number
+  hour_start: string
+  hour_end: string
+  sample_count: number
+  median_price: number
+  mean_price: number
+  min_price: number
+  max_price: number
 }
+
+export type IntradayBestHours = {
+  date: string
+  notional: number
+  min_samples: number
+  buckets_considered: number
+  /** null cuando no hubo muestra suficiente. No se interpola. */
+  best_buy_hour: HourBucket | null
+  best_sell_hour: HourBucket | null
+}
+
+export type BestHoursResponse = IntradayBestHours & {
+  ok: boolean
+  side: P2PSide
+  buckets: HourBucket[]
+}
+
+// =========================================================
+// OFERTA DE DIVISAS (intervención digital bancaria)
+// =========================================================
+
+/** Ojo con la diferencia entre estos estados:
+ *
+ *  USUAL_WINDOW_MISSED  no apareció en su ventana habitual, pero el
+ *                       monitoreo sigue: NO es ausencia del día.
+ *  EXPECTED_BUT_NOT_SEEN cerró todo el período sin ninguna activación,
+ *                       con el lector operativo.
+ *  UNKNOWN              no hay cobertura suficiente para concluir nada. */
+export type FxSupplyStatus =
+  | "CONFIRMED"
+  | "CONFIRMED_EARLY"
+  | "CONFIRMED_LATE"
+  | "USUAL_WINDOW_MISSED"
+  | "MONITORING"
+  | "EXPECTED_BUT_NOT_SEEN"
+  | "UNKNOWN"
+
+export type FxSupplyStage =
+  | "pre_window"
+  | "usual_window"
+  | "extended_monitoring"
+  | "closed"
+
+export type FxSupplyInstitutionState = {
+  institution: string
+  label: string
+  status: FxSupplyStatus
+  stage: FxSupplyStage
+  event_count: number
+  usual_window_passed: boolean
+  monitoring_closed: boolean
+  monitor_until: string
+  reader_coverage: number | null
+  reader_coverage_ok: boolean
+  first_event_time?: string
+  last_event_time?: string
+  rate?: number
+  early_event_count?: number
+  late_event_count?: number
+}
+
+export type FxSupplyContext = Record<string, FxSupplyInstitutionState>
+
+export type FxSupplySignal = {
+  stage: FxSupplyStage
+  status: FxSupplyStatus
+  institution: string
+  signal: "possible_supply_pressure" | "supply_available" | "no_signal"
+  /** Deliberadamente NO se llama "confidence": no es una probabilidad
+   *  predictiva, es cuántas métricas del mercado concuerdan. */
+  support_level: "low" | "medium" | "high"
+  supporting_metrics: string[]
+}
+
+/** Etiqueta de madurez de la muestra. Con "insufficient" el bloque de
+ *  cifras viene vacío a propósito. */
+export type FxSupplyMaturity =
+  | "insufficient"
+  | "preliminary"
+  | "limited"
+  | "established_sample"
+
+export type FxSupplyStatBlock = {
+  sample_size: number
+  maturity: FxSupplyMaturity
+  median_change_1h?: number
+  median_change_3h?: number
+  median_change_6h?: number
+  median_change_12h?: number
+  median_change_24h?: number
+  historical_up_frequency_1h?: number
+  historical_up_frequency_3h?: number
+  historical_up_frequency_6h?: number
+  historical_up_frequency_12h?: number
+}
+
+/** Familia A: la jornada. "¿Qué ocurre en días sin intervención?" */
+export type FxSupplyDayStats = {
+  usual_window_missed?: {
+    anchor: "usual_window_end"
+    institution: string
+    available: boolean
+    with_event: FxSupplyStatBlock
+    without_event: FxSupplyStatBlock
+  }
+  full_day_without_event?: {
+    anchor: "monitor_until"
+    institution: string
+    available: boolean
+    with_event: FxSupplyStatBlock
+    without_event: FxSupplyStatBlock
+  }
+}
+
+/** Familia B: el evento. "¿Qué hace el P2P después de una intervención?"
+ *  Nunca se mezcla con la familia A: son preguntas distintas. */
+export type FxSupplyEventStats = {
+  institution: string
+  available: boolean
+  usual_window?: FxSupplyStatBlock
+  early?: FxSupplyStatBlock
+  late?: FxSupplyStatBlock
+}
+
+export type FxSupplyBundle = {
+  intraday: IntradayBestHours | null
+  fx_supply_context: FxSupplyContext | null
+  fx_supply_signal: FxSupplySignal | null
+  fx_supply_day_stats: FxSupplyDayStats | null
+  fx_supply_event_stats: FxSupplyEventStats | null
+}
+
+export type P2PMarketStatusResponse = P2PMarketSnapshot &
+  Partial<FxSupplyBundle> & {
+    ok: boolean
+  }
 
 // =========================================================
 // ANÁLISIS IA DEL MERCADO P2P
@@ -368,10 +518,113 @@ export type P2PAnalysisRange = "15m" | "30m" | "1h" | "24h"
 export type P2PMarketAnalysisResponse = {
   ok: boolean
   analysis: P2PMarketAnalysis
+  analysis_id: number
   snapshot: P2PMarketSnapshot
   range: P2PAnalysisRange
   model: string
+  trigger: string
+  generated_at: string
   cached: boolean
+  /** Verdadero cuando se devolvió un análisis ya guardado y NO se
+   *  invocó al modelo. */
+  cached_analysis: boolean
+} & Partial<FxSupplyBundle>
+
+// =========================================================
+// STREAMING DEL ANÁLISIS (SSE)
+// =========================================================
+
+export type AiStreamMetadata = {
+  analysis_id: number
+  input_hash: string
+  model: string
+  prompt_version: string
+  trigger: string
+  cached_analysis: boolean
+  generated_at: string
+  market_state: P2PMarketState
+  risk_level: P2PRiskLevel
+}
+
+export type AiStreamMetrics = FxSupplyBundle & {
+  snapshot: P2PMarketSnapshot
+  market_state: P2PMarketState
+  risk_level: P2PRiskLevel
+  fx_event_context: Record<string, unknown> | null
+}
+
+export type AiStreamDone = {
+  analysis_id: number
+  headline: string
+  analysis_text: string
+  generation_ms: number | null
+  prompt_tokens: number | null
+  cached_prompt_tokens: number | null
+  output_tokens: number | null
+}
+
+// =========================================================
+// HISTORIAL DE ANÁLISIS IA
+// =========================================================
+
+export type AiAnalysisTrigger =
+  | "manual"
+  | "checkpoint"
+  | "fx_event"
+  | "fx_event_followup"
+  | "daily_summary"
+
+export type AiAnalysisListItem = {
+  id: number
+  generated_at: string
+  headline: string
+  current_price: number | null
+  market_state: P2PMarketState
+  risk_level: P2PRiskLevel
+  source: string
+  side: P2PSide
+  notional: number | null
+  range: string
+  trigger: AiAnalysisTrigger
+  checkpoint_key: string
+}
+
+export type AiAnalysisHistoryResponse = {
+  ok: boolean
+  page: number
+  page_size: number
+  total: number
+  has_next: boolean
+  results: AiAnalysisListItem[]
+}
+
+export type AiAnalysisDetailResponse = P2PMarketAnalysisResponse
+
+// =========================================================
+// RESUMEN DIARIO
+// =========================================================
+
+export type DailyMarketSummaryResponse = {
+  ok: boolean
+  date: string
+  open: number | null
+  close: number | null
+  high: number | null
+  low: number | null
+  change: number | null
+  change_percent: number | null
+  best_buy_hour: HourBucket | null
+  best_sell_hour: HourBucket | null
+  max_drawdown: number | null
+  volatility: string
+  spread_stats: Record<string, number>
+  bcv_premium_avg: number | null
+  alerts_count: number
+  fx_supply: Record<string, FxSupplyInstitutionState>
+  headline: string
+  summary: string
+  model: string
+  generated_at: string
 }
 
 // =========================================================

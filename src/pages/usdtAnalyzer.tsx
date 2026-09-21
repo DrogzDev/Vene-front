@@ -13,8 +13,13 @@ import {
 } from "recharts"
 import { format } from "date-fns"
 
-import { getP2PHistory, getP2PHistorySummary } from "../services/pricesApi"
+import {
+  getBestHours,
+  getP2PHistory,
+  getP2PHistorySummary,
+} from "../services/pricesApi"
 import type {
+  BestHoursResponse,
   P2PCandle,
   P2PCandleInterval,
   P2PHistoryRange,
@@ -35,7 +40,6 @@ const RANGE_OPTIONS: { key: P2PHistoryRange; label: string }[] = [
   { key: "all", label: "Todo" },
 ]
 
-const VENEZUELA_TZ = "America/Caracas"
 const UP_COLOR = "#22c55e"
 const DOWN_COLOR = "#ef4444"
 
@@ -44,26 +48,24 @@ type ChartPoint = P2PCandle & {
   range: [number, number]
 }
 
+/**
+ * Franja horaria tal y como la calcula Django.
+ *
+ * Antes esta vista agrupaba las horas por su cuenta en el navegador,
+ * con media y con su propio umbral, así que podía contradecir a la
+ * Vista Profesional. Ahora las dos leen el mismo cálculo, que usa
+ * MEDIANA para que un anuncio atípico no corone una hora que en
+ * realidad nunca estuvo disponible.
+ */
 type HourStat = {
   hour: number
   label: string
-  avgPrice: number
-  maxPrice: number
+  medianPrice: number
   samples: number
 }
 
 function chartIntervalForRange(range: P2PHistoryRange): P2PCandleInterval {
   return range === "90d" || range === "all" ? "day" : "hour"
-}
-
-function getVenezuelaHour(iso: string): number {
-  const formatted = new Intl.DateTimeFormat("en-US", {
-    timeZone: VENEZUELA_TZ,
-    hour: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(iso))
-
-  return parseInt(formatted, 10)
 }
 
 function formatHourLabel(hour: number) {
@@ -169,7 +171,7 @@ function CustomHourTooltip({
     <div className="rounded-xl border border-[#2a2f38] bg-[#171a21] px-3 py-2 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.4)]">
       <p className="text-[#8b92a0]">{point.label} VE</p>
       <p className="mt-1 font-semibold text-lime-400">
-        Promedio: Bs {formatBs(point.avgPrice)}
+        Mediana: Bs {formatBs(point.medianPrice)}
       </p>
       <p className="mt-0.5 text-[#7f8694]">
         {point.samples} {point.samples === 1 ? "muestra" : "muestras"}
@@ -214,7 +216,7 @@ function UsdtAnalyzerSimple({
 
   const [range, setRange] = useState<P2PHistoryRange>("7d")
   const [candles, setCandles] = useState<P2PCandle[]>([])
-  const [hourCandles, setHourCandles] = useState<P2PCandle[]>([])
+  const [bestHours, setBestHours] = useState<BestHoursResponse | null>(null)
   const [summary, setSummary] = useState<P2PHistorySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -230,22 +232,20 @@ function UsdtAnalyzerSimple({
         setError("")
         setLoading(true)
 
-        const needsSeparateHourly = chartInterval === "day"
-
-        const [chartResult, summaryResult, hourResult] = await Promise.all([
+        const [chartResult, summaryResult, hoursResult] = await Promise.all([
           getP2PHistory(range, chartInterval),
           getP2PHistorySummary(range),
-          needsSeparateHourly ? getP2PHistory(range, "hour") : Promise.resolve(null),
+          // Las franjas horarias las calcula Django, no el navegador.
+          // Si falla, el resto de la pantalla sigue funcionando.
+          getBestHours({ side: "SELL" }).catch(() => null),
         ])
 
         if (cancelled) return
 
         setCandles(chartResult.data.data)
         setSummary(summaryResult.data.summary)
-        setHourCandles(needsSeparateHourly ? hourResult!.data.data : chartResult.data.data)
-        setUsingCache(
-          chartResult.fromCache || summaryResult.fromCache || (hourResult?.fromCache ?? false),
-        )
+        setBestHours(hoursResult)
+        setUsingCache(chartResult.fromCache || summaryResult.fromCache)
       } catch (err) {
         if (cancelled) return
         setError(err instanceof Error ? err.message : "Error cargando el análisis")
@@ -270,38 +270,40 @@ function UsdtAnalyzerSimple({
   }, [candles, chartInterval, range])
 
   const hourStats = useMemo<HourStat[]>(() => {
-    const buckets = new Map<number, { sum: number; max: number; count: number }>()
-
-    for (const candle of hourCandles) {
-      const hour = getVenezuelaHour(candle.at)
-      const bucket = buckets.get(hour) ?? { sum: 0, max: 0, count: 0 }
-
-      bucket.sum += candle.best
-      bucket.max = Math.max(bucket.max, candle.best)
-      bucket.count += 1
-
-      buckets.set(hour, bucket)
-    }
+    const byHour = new Map(bestHours?.buckets.map((b) => [b.hour, b]) ?? [])
 
     return Array.from({ length: 24 }, (_, hour) => {
-      const bucket = buckets.get(hour)
+      const bucket = byHour.get(hour)
 
       return {
         hour,
         label: formatHourLabel(hour),
-        avgPrice: bucket ? bucket.sum / bucket.count : 0,
-        maxPrice: bucket?.max ?? 0,
-        samples: bucket?.count ?? 0,
+        medianPrice: bucket?.median_price ?? 0,
+        samples: bucket?.sample_count ?? 0,
       }
     })
-  }, [hourCandles])
+  }, [bestHours])
 
   const rankedHours = useMemo(
-    () => hourStats.filter((h) => h.samples > 0).sort((a, b) => b.avgPrice - a.avgPrice),
+    () => hourStats.filter((h) => h.samples > 0).sort((a, b) => b.medianPrice - a.medianPrice),
     [hourStats],
   )
 
-  const bestHour = rankedHours[0] ?? null
+  // La franja la elige Django, no el navegador: aquí solo se dibuja.
+  const bestHour = useMemo(() => {
+    const winner = bestHours?.best_sell_hour
+
+    if (!winner) return null
+
+    return {
+      hour: winner.hour,
+      label: winner.hour_start,
+      hourEnd: winner.hour_end,
+      medianPrice: winner.median_price,
+      samples: winner.sample_count,
+    }
+  }, [bestHours])
+
   const topHourKeys = useMemo(
     () => new Set(rankedHours.slice(0, 3).map((h) => h.hour)),
     [rankedHours],
@@ -455,9 +457,11 @@ function UsdtAnalyzerSimple({
         </div>
 
         <div className="mt-4 rounded-2xl border border-[#27313d] bg-[#10161d] p-3">
-          <p className="px-1 text-xs font-semibold text-[#d7dbe3]">Mejor hora para vender</p>
+          <p className="px-1 text-xs font-semibold text-[#d7dbe3]">
+            Mejor hora observada hoy para vender
+          </p>
           <p className="px-1 pb-2 text-[11px] text-[#7f8694]">
-            Precio promedio por hora del día (hora de Venezuela)
+            Mediana por franja horaria (hora de Venezuela)
           </p>
 
           {loading ? (
@@ -491,7 +495,7 @@ function UsdtAnalyzerSimple({
                     width={48}
                   />
                   <Tooltip content={<CustomHourTooltip />} cursor={{ fill: "#1f2530" }} />
-                  <Bar dataKey="avgPrice" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                  <Bar dataKey="medianPrice" radius={[4, 4, 0, 0]} isAnimationActive={false}>
                     {hourStats.map((stat) => (
                       <Cell
                         key={stat.hour}
@@ -510,12 +514,17 @@ function UsdtAnalyzerSimple({
 
               {bestHour && (
                 <div className="mt-3 rounded-xl border border-[#3a4a2e] bg-[#1a2417] px-3 py-2.5">
+                  {/* Observación, no recomendación: describe lo que ya
+                      pasó hoy y nunca a qué hora conviene operar. */}
                   <p className="text-xs text-[#8fd147]">
-                    Históricamente el mejor momento para vender es alrededor de las{" "}
-                    <span className="font-semibold">{bestHour.label}</span> hora de Venezuela,
-                    con un precio promedio de{" "}
-                    <span className="font-semibold">Bs {formatBs(bestHour.avgPrice)}</span>{" "}
-                    ({bestHour.samples} {bestHour.samples === 1 ? "muestra" : "muestras"}).
+                    Hasta ahora, la franja con el precio de venta más alto
+                    observada hoy fue entre las{" "}
+                    <span className="font-semibold">
+                      {bestHour.label} y {bestHour.hourEnd}
+                    </span>{" "}
+                    hora de Venezuela, con una mediana de{" "}
+                    <span className="font-semibold">Bs {formatBs(bestHour.medianPrice)}</span>{" "}
+                    ({bestHour.samples} {bestHour.samples === 1 ? "lectura" : "lecturas"}).
                   </p>
                 </div>
               )}

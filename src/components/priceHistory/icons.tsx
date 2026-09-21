@@ -28,6 +28,43 @@ export function ChevronLeftIcon({ className = "h-5 w-5" }: IconProps) {
   )
 }
 
+export function ChevronRightIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M9 18l6-6-6-6" />
+    </svg>
+  )
+}
+
+export function HistoryIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M3 12a9 9 0 1 0 2.64-6.36" />
+      <path d="M3 4v5h5" />
+      <path d="M12 8v4l3 2" />
+    </svg>
+  )
+}
+
+export function ClockIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  )
+}
+
+export function BankIcon({ className = "h-4 w-4" }: IconProps) {
+  return (
+    <svg {...base} className={className}>
+      <path d="M3 10l9-5 9 5" />
+      <path d="M5 10v8M10 10v8M14 10v8M19 10v8" />
+      <path d="M3 21h18" />
+    </svg>
+  )
+}
+
 export function LineChartIcon({ className = "h-4 w-4" }: IconProps) {
   return (
     <svg {...base} className={className}>

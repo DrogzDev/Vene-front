@@ -21,6 +21,10 @@ import type {
   P2PSideSelection,
   P2PMarketCurrentResponse,
   P2PNotionalHistoryResponse,
+  AiAnalysisHistoryResponse,
+  AiAnalysisDetailResponse,
+  BestHoursResponse,
+  DailyMarketSummaryResponse,
 } from "../types/prices"
 import { getDeviceId } from "../utils/device"
 
@@ -329,6 +333,108 @@ export async function getMarketAnalysis(
   }
 
   return data as MarketAnalysisResponse
+}
+
+/**
+ * Lector común de los endpoints que no se cachean en localStorage.
+ * Mantiene el mismo contrato de error que el resto del análisis IA.
+ */
+async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { signal })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || !data?.ok) {
+    throw new MarketAnalysisError(
+      data?.error ?? "No se pudo completar la consulta.",
+      data?.code ?? "error",
+      response.status,
+    )
+  }
+
+  return data as T
+}
+
+/**
+ * Historial de análisis guardados. Paginado a propósito: abrir el panel
+ * no debe arrastrar meses de texto, y el cuerpo de cada análisis solo
+ * se pide al abrirlo.
+ */
+export async function getAiAnalysisHistory(
+  options: {
+    page?: number
+    pageSize?: number
+    side?: P2PSide
+    date?: string
+    signal?: AbortSignal
+  } = {},
+) {
+  const params = new URLSearchParams()
+
+  params.set("page", String(options.page ?? 1))
+
+  if (options.pageSize) params.set("page_size", String(options.pageSize))
+  if (options.side) params.set("side", options.side)
+  if (options.date) params.set("date", options.date)
+
+  return getJson<AiAnalysisHistoryResponse>(
+    `/p2p/analysis/history/?${params.toString()}`,
+    options.signal,
+  )
+}
+
+/**
+ * Un análisis guardado. Nunca vuelve a invocar al modelo: abrir algo del
+ * historial no puede costar una inferencia.
+ */
+export async function getAiAnalysisDetail(
+  id: number,
+  options: { signal?: AbortSignal } = {},
+) {
+  return getJson<AiAnalysisDetailResponse>(
+    `/p2p/analysis/${id}/`,
+    options.signal,
+  )
+}
+
+/**
+ * Mejores horas observadas del día.
+ *
+ * Fuente única para la vista Simple y la Profesional: antes la Simple
+ * agrupaba las horas en el navegador con su propio criterio y las dos
+ * vistas podían contradecirse.
+ */
+export async function getBestHours(
+  options: {
+    notional?: number
+    side?: P2PSide
+    date?: string
+    signal?: AbortSignal
+  } = {},
+) {
+  const params = new URLSearchParams()
+
+  if (options.notional) params.set("notional", String(options.notional))
+  if (options.side) params.set("side", options.side)
+  if (options.date) params.set("date", options.date)
+
+  const query = params.toString()
+
+  return getJson<BestHoursResponse>(
+    `/p2p/best-hours/${query ? `?${query}` : ""}`,
+    options.signal,
+  )
+}
+
+export async function getDailyMarketSummary(
+  options: { date?: string; signal?: AbortSignal } = {},
+) {
+  const query = options.date ? `?date=${encodeURIComponent(options.date)}` : ""
+
+  return getJson<DailyMarketSummaryResponse>(
+    `/p2p/daily-summary/${query}`,
+    options.signal,
+  )
 }
 
 const P2P_HISTORY_CACHE_KEY_PREFIX = "vex_p2p_history_cache_"

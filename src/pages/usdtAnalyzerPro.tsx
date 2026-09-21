@@ -3,18 +3,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   MarketAnalysisError,
   getMarketAnalysisStatus,
-  getP2PMarketAnalysis,
   getP2PMarketCurrent,
   getP2PMarketStatus,
   getP2PNotionalHistory,
   getP2PTimeframeCandles,
 } from "../services/pricesApi"
+import { streamP2PMarketAnalysis } from "../services/aiStream"
 import type {
+  FxSupplyContext,
+  IntradayBestHours,
   P2PChartCandle,
   P2PHistoryRange,
   P2PIndicatorSeries,
   P2PMarketAnalysis,
   P2PMarketSnapshot,
+  P2PMarketState,
+  P2PMarketStatusResponse,
+  P2PRiskLevel,
   P2PSideCandle,
   P2PSideCandlesPayload,
   P2PSideSelection,
@@ -34,9 +39,11 @@ import P2PProChart from "../components/p2pMarket/P2PProChart"
 import type { P2PChartMode } from "../components/p2pMarket/P2PProChart"
 import P2PDualLineChart from "../components/p2pMarket/P2PDualLineChart"
 import MarketStatusPanel from "../components/p2pMarket/MarketStatusPanel"
+import FxSupplyCard from "../components/p2pMarket/FxSupplyCard"
 import RapidDropAlertCard from "../components/p2pMarket/RapidDropAlertCard"
 import AiFloatingButton from "../components/p2pMarket/AiFloatingButton"
 import P2PAiDrawer from "../components/p2pMarket/P2PAiDrawer"
+import AiHistorySheet from "../components/p2pMarket/AiHistorySheet"
 import SegmentedControl from "../components/priceHistory/SegmentedControl"
 import { ChartSkeleton, EmptyState } from "../components/priceHistory/states"
 import { LineChartIcon, CandleChartIcon, ResetZoomIcon } from "../components/priceHistory/icons"
@@ -133,19 +140,31 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
   const [activeIndicators, setActiveIndicators] = useState<IndicatorKey[]>([])
   const [resetSignal, setResetSignal] = useState(0)
 
-  const [snapshot, setSnapshot] = useState<P2PMarketSnapshot | null>(null)
+  // El estado del mercado llega con extras (intradía y oferta de
+  // divisas) además del snapshot, de ahí el tipo de la respuesta.
+  const [snapshot, setSnapshot] = useState<P2PMarketStatusResponse | null>(null)
   const [snapshotLoading, setSnapshotLoading] = useState(true)
   const [snapshotError, setSnapshotError] = useState("")
 
   const [aiAvailable, setAiAvailable] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  const [aiHistoryOpen, setAiHistoryOpen] = useState(false)
   const [aiLoading, setAiLoading] = useState(false)
+  const [aiStreaming, setAiStreaming] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
   const [aiAnalysis, setAiAnalysis] = useState<P2PMarketAnalysis | null>(null)
+  const [aiStreamedText, setAiStreamedText] = useState("")
   const [aiSnapshot, setAiSnapshot] = useState<P2PMarketSnapshot | null>(null)
+  const [aiIntraday, setAiIntraday] = useState<IntradayBestHours | null>(null)
+  const [aiFxSupply, setAiFxSupply] = useState<FxSupplyContext | null>(null)
   const [aiGeneratedAt, setAiGeneratedAt] = useState<string | null>(null)
+  const [aiCached, setAiCached] = useState(false)
 
   const aiRequestRef = useRef<AbortController | null>(null)
+  const aiClassificationRef = useRef<{
+    market_state: P2PMarketState
+    risk_level: P2PRiskLevel
+  }>({ market_state: "neutral", risk_level: "normal" })
   const chartHeight = useProChartHeight()
 
   const isDual = side === "BOTH"
@@ -352,36 +371,100 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
     }
   }, [])
 
-  const runAiAnalysis = useCallback(async (refresh: boolean) => {
+  /**
+   * Lanza el análisis en streaming.
+   *
+   * `force` solo llega en true cuando el usuario pulsa "Actualizar
+   * análisis". Sin él, si nada relevante cambió el backend devuelve el
+   * análisis guardado sin invocar al modelo, y eso se nota porque el
+   * texto aparece de golpe en vez de escribirse.
+   */
+  const runAiAnalysis = useCallback(async (force: boolean) => {
     aiRequestRef.current?.abort()
 
     const controller = new AbortController()
     aiRequestRef.current = controller
 
     setAiLoading(true)
+    setAiStreaming(false)
     setAiError(null)
+    setAiAnalysis(null)
+    setAiStreamedText("")
+
+    // El análisis solo entiende SELL/BUY; en modo "Ambos" se usa
+    // SELL como protagonista (igual que el snapshot del panel).
+    const analysisSide = side === "BOTH" ? "SELL" : side
 
     try {
-      // El análisis solo entiende SELL/BUY; en modo "Ambos" se usa
-      // SELL como protagonista (igual que el snapshot del panel).
-      const analysisSide = side === "BOTH" ? "SELL" : side
+      await streamP2PMarketAnalysis(
+        {
+          side: analysisSide,
+          range: "1h",
+          notional,
+          force,
+          signal: controller.signal,
+        },
+        {
+          onMetadata: (data) => {
+            if (controller.signal.aborted) return
 
-      const result = await getP2PMarketAnalysis("1h", {
-        side: analysisSide,
-        notional,
-        refresh,
-        signal: controller.signal,
-      })
+            // La clasificación viene de Django, no del modelo: se
+            // guarda para reutilizarla al cerrar el stream.
+            aiClassificationRef.current = {
+              market_state: data.market_state,
+              risk_level: data.risk_level,
+            }
 
-      if (controller.signal.aborted) return
+            setAiCached(data.cached_analysis)
+            setAiGeneratedAt(data.generated_at)
+            setAiStreaming(!data.cached_analysis)
+          },
 
-      setAiAnalysis(result.analysis)
-      setAiSnapshot(result.snapshot)
-      setAiGeneratedAt(new Date().toISOString())
+          // Las métricas llegan antes del primer token: las tarjetas se
+          // pintan de inmediato y el modelo solo alimenta la narrativa.
+          onMetrics: (data) => {
+            if (controller.signal.aborted) return
+
+            setAiSnapshot(data.snapshot)
+            setAiIntraday(data.intraday)
+            setAiFxSupply(data.fx_supply_context)
+            setAiLoading(false)
+          },
+
+          onToken: (content) => {
+            if (controller.signal.aborted) return
+
+            setAiStreamedText((previous) => previous + content)
+          },
+
+          onDone: (data) => {
+            if (controller.signal.aborted) return
+
+            setAiAnalysis({
+              headline: data.headline,
+              summary: data.analysis_text,
+              market_state: aiClassificationRef.current.market_state,
+              risk_level: aiClassificationRef.current.risk_level,
+              observations: [],
+            })
+            setAiStreaming(false)
+            setAiLoading(false)
+          },
+
+          onError: (err) => {
+            if (controller.signal.aborted) return
+
+            // El texto recibido hasta aquí se conserva a propósito.
+            setAiStreaming(false)
+            setAiLoading(false)
+            setAiError(err.message)
+          },
+        },
+      )
     } catch (err) {
       if (controller.signal.aborted) return
 
-      setAiAnalysis(null)
+      setAiStreaming(false)
 
       setAiError(
         err instanceof MarketAnalysisError
@@ -395,6 +478,14 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
 
   function openAiDrawer() {
     setAiOpen(true)
+  }
+
+  /** Cerrar el panel corta el stream: nada de conexiones colgando. */
+  function closeAiDrawer() {
+    aiRequestRef.current?.abort()
+    setAiStreaming(false)
+    setAiLoading(false)
+    setAiOpen(false)
   }
 
   const activeTimeframeMeta = useMemo(
@@ -551,16 +642,24 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
 
           {/* Estado del mercado también aquí en móvil, debajo del chart. */}
           {snapshot && (
-            <div className="mt-4 lg:hidden">
+            <div className="mt-4 space-y-4 lg:hidden">
               <MarketStatusPanel snapshot={snapshot} />
+              <FxSupplyCard
+                context={snapshot.fx_supply_context ?? null}
+                dayStats={snapshot.fx_supply_day_stats ?? null}
+              />
             </div>
           )}
         </div>
 
         {/* Panel lateral solo en desktop. */}
         {snapshot && (
-          <div className="mt-4 hidden lg:mt-0 lg:block">
+          <div className="mt-4 hidden space-y-4 lg:mt-0 lg:block">
             <MarketStatusPanel snapshot={snapshot} />
+            <FxSupplyCard
+              context={snapshot.fx_supply_context ?? null}
+              dayStats={snapshot.fx_supply_day_stats ?? null}
+            />
           </div>
         )}
       </div>
@@ -570,12 +669,23 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
       <P2PAiDrawer
         open={aiOpen}
         loading={aiLoading}
+        streaming={aiStreaming}
         error={aiError}
         analysis={aiAnalysis}
+        streamedText={aiStreamedText}
         snapshot={aiSnapshot}
+        intraday={aiIntraday}
+        fxSupply={aiFxSupply}
         generatedAt={aiGeneratedAt}
-        onClose={() => setAiOpen(false)}
+        cached={aiCached}
+        onClose={closeAiDrawer}
         onAnalyze={runAiAnalysis}
+        onOpenHistory={() => setAiHistoryOpen(true)}
+      />
+
+      <AiHistorySheet
+        open={aiHistoryOpen}
+        onClose={() => setAiHistoryOpen(false)}
       />
     </main>
   )
