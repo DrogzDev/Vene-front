@@ -19,7 +19,7 @@ import type {
   UTCTimestamp,
 } from "lightweight-charts"
 
-import type { P2PCandle, P2PIndicatorSeries } from "../../types/prices"
+import type { P2PChartCandle, P2PIndicatorSeries } from "../../types/prices"
 import { formatBs } from "../../utils/format"
 import { formatFullTime, formatReadoutTime, formatTickMark } from "../priceHistory/chartFormat"
 import { COLORS } from "./theme"
@@ -38,7 +38,7 @@ type Readout = {
 }
 
 type Props = {
-  candles: P2PCandle[]
+  candles: P2PChartCandle[]
   indicators: P2PIndicatorSeries
   activeIndicators: IndicatorKey[]
   intervalSeconds: number
@@ -47,7 +47,7 @@ type Props = {
   mode: P2PChartMode
 }
 
-function toCandleData(candles: P2PCandle[]): CandlestickData<Time>[] {
+function toCandleData(candles: P2PChartCandle[]): CandlestickData<Time>[] {
   return candles.map((candle) => ({
     time: candle.time as UTCTimestamp,
     open: candle.open,
@@ -57,11 +57,11 @@ function toCandleData(candles: P2PCandle[]): CandlestickData<Time>[] {
   }))
 }
 
-function toCloseLineData(candles: P2PCandle[]): LineData<Time>[] {
+function toCloseLineData(candles: P2PChartCandle[]): LineData<Time>[] {
   return candles.map((candle) => ({ time: candle.time as UTCTimestamp, value: candle.close }))
 }
 
-function toActivityData(candles: P2PCandle[]): HistogramData<Time>[] {
+function toActivityData(candles: P2PChartCandle[]): HistogramData<Time>[] {
   return candles.map((candle) => ({
     time: candle.time as UTCTimestamp,
     value: candle.samples,
@@ -69,7 +69,7 @@ function toActivityData(candles: P2PCandle[]): HistogramData<Time>[] {
   }))
 }
 
-function toIndicatorLineData(candles: P2PCandle[], values: (number | null)[]): LineData<Time>[] {
+function toIndicatorLineData(candles: P2PChartCandle[], values: (number | null)[]): LineData<Time>[] {
   const rows: LineData<Time>[] = []
 
   for (let i = 0; i < candles.length; i += 1) {
@@ -83,7 +83,7 @@ function toIndicatorLineData(candles: P2PCandle[], values: (number | null)[]): L
   return rows
 }
 
-function readoutFromCandle(candle: P2PCandle): Readout {
+function readoutFromCandle(candle: P2PChartCandle): Readout {
   const changePercent = candle.open ? ((candle.close - candle.open) / candle.open) * 100 : 0
 
   return {

@@ -67,10 +67,35 @@ export default function MarketStatusPanel({ snapshot }: Props) {
           tone="#f87171"
         />
         <Row
-          label="Spread vs BCV"
+          label={`${snapshot.opposite_side === "BUY" ? "BUY" : "SELL"} (contrario)`}
+          value={snapshot.opposite_price != null ? `Bs ${formatBs(snapshot.opposite_price)}` : "—"}
+          tone="#d7dbe3"
+        />
+        <Row
+          label="Spread SELL-BUY"
+          value={
+            snapshot.spread_percent_market != null
+              ? `${snapshot.spread_percent_market.toFixed(2)}%`
+              : "—"
+          }
+          tone="#d7dbe3"
+        />
+        <Row
+          label="Premium vs BCV"
           value={snapshot.spread_percent != null ? `${snapshot.spread_percent.toFixed(2)}%` : "—"}
           tone="#d7dbe3"
         />
+        {snapshot.liquidity && (
+          <Row
+            label="Liquidez (top 10)"
+            value={
+              snapshot.liquidity.sell != null
+                ? `${Math.round(snapshot.liquidity.sell).toLocaleString("es-VE")} USDT`
+                : "—"
+            }
+            tone="#d7dbe3"
+          />
+        )}
       </div>
 
       {snapshot.bcv_reference_price != null && (

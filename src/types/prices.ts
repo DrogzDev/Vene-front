@@ -192,6 +192,21 @@ export type P2PCandle = {
   samples: number
 }
 
+/**
+ * Forma mínima que necesita el chart de un solo lado (P2PProChart).
+ * Tanto P2PCandle (histórico crudo) como P2PSideCandle (snapshots
+ * multi-notional) la cumplen de forma estructural, así que el chart
+ * puede recibir cualquiera de los dos sin adaptadores.
+ */
+export type P2PChartCandle = {
+  time: number
+  open: number
+  high: number
+  low: number
+  close: number
+  samples: number
+}
+
 export type P2PHistoryResponse = {
   ok: boolean
   filters: P2PHistoryFilters
@@ -277,10 +292,17 @@ export type P2PRapidDropAlert = {
   threshold_percent: number
 }
 
+export type P2PSide = "SELL" | "BUY"
+export type P2PSideSelection = P2PSide | "BOTH"
+
 export type P2PMarketSnapshot = {
   symbol: string
-  side: "SELL"
+  /** Lado protagonista: change_15m/30m/1h/24h, trend, volatility y
+   *  percentile_7d se refieren a este lado. El contrario viaja en los
+   *  campos "opposite_*". */
+  side: P2PSide
   amount_usdt: number
+  notional_selected: number
 
   current_price: number
   current_price_at: string
@@ -302,9 +324,21 @@ export type P2PMarketSnapshot = {
   trend_insufficient_data: boolean
   volatility: P2PVolatility
 
-  sell_price: number
+  sell_price: number | null
+  buy_price: number | null
+  opposite_side: P2PSide
+  opposite_price: number | null
+  opposite_change_1h: number | null
+
+  /** Spread real BUY-SELL (no confundir con el premium vs BCV). */
+  spread_absolute: number | null
+  spread_percent_market: number | null
+
   bcv_reference_price: number | null
+  /** Premium del lado protagonista sobre la tasa BCV. */
   spread_percent: number | null
+
+  liquidity: { sell: number | null; buy: number | null } | null
 
   samples_24h: number
   alerts: P2PRapidDropAlert[]
@@ -338,6 +372,77 @@ export type P2PMarketAnalysisResponse = {
   range: P2PAnalysisRange
   model: string
   cached: boolean
+}
+
+// =========================================================
+// MERCADO P2P MULTI-NOTIONAL (BUY + SELL a varios tamaños)
+// =========================================================
+
+/** Niveles reales que expone el backend (settings.P2P_NOTIONAL_USDT_LEVELS). */
+export type P2PNotional = 100 | 250 | 500 | 1000
+
+export type P2PMarketCurrentResponse = {
+  ok: boolean
+  symbol: string
+  timestamp: string
+  sell: Record<string, number | null>
+  buy: Record<string, number | null>
+  spread: { absolute: number | null; percent: number | null }
+  liquidity: { sell_top10: number | null; buy_top10: number | null }
+  depth: {
+    sell: Record<string, number>
+    buy: Record<string, number>
+  }
+  dispersion: { sell: number | null; buy: number | null }
+  slippage: {
+    sell: Record<string, number>
+    buy: Record<string, number>
+  }
+  ads_count: { sell: number; buy: number }
+  bcv: {
+    reference: number | null
+    premium_sell: number | null
+    premium_buy: number | null
+  }
+  scraper_health: {
+    status: "healthy" | "degraded" | "offline"
+    last_attempt: string | null
+    last_successful_scrape: string | null
+    latency_ms: number | null
+    sell_ads_received: number
+    buy_ads_received: number
+  }
+}
+
+/** Vela agregada desde P2PMarketSnapshot (no P2PCapture crudo). */
+export type P2PSideCandle = {
+  time: number
+  at: string
+  open: number
+  high: number
+  low: number
+  close: number
+  samples: number
+  /** Anuncios válidos promedio en la vela. Nunca "volumen". */
+  activity: number
+}
+
+export type P2PSideCandlesPayload = {
+  data: P2PSideCandle[]
+  available: boolean
+  reason: string | null
+}
+
+export type P2PNotionalHistoryResponse = {
+  ok: boolean
+  mode: "notional"
+  side: P2PSideSelection
+  notional: number
+  range: string
+  granularity: P2PTimeframeKey
+  supported_notionals: number[]
+  total_snapshots: number
+  data: P2PSideCandlesPayload | { sell: P2PSideCandlesPayload; buy: P2PSideCandlesPayload }
 }
 
 // =========================================================

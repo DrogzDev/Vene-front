@@ -4,25 +4,35 @@ import {
   MarketAnalysisError,
   getMarketAnalysisStatus,
   getP2PMarketAnalysis,
+  getP2PMarketCurrent,
   getP2PMarketStatus,
+  getP2PNotionalHistory,
   getP2PTimeframeCandles,
 } from "../services/pricesApi"
 import type {
-  P2PHistoryChartResponse,
+  P2PChartCandle,
   P2PHistoryRange,
+  P2PIndicatorSeries,
   P2PMarketAnalysis,
   P2PMarketSnapshot,
+  P2PSideCandle,
+  P2PSideCandlesPayload,
+  P2PSideSelection,
   P2PSupportedTimeframe,
   P2PTimeframeKey,
   P2PViewMode,
 } from "../types/prices"
+import { getStoredP2PNotional, getStoredP2PSide, setStoredP2PNotional, setStoredP2PSide } from "../utils/p2pPreferences"
 
 import ProHeader from "../components/p2pMarket/ProHeader"
 import TimeframeToolbar from "../components/p2pMarket/TimeframeToolbar"
 import IndicatorsMenu from "../components/p2pMarket/IndicatorsMenu"
 import type { IndicatorKey } from "../components/p2pMarket/IndicatorsMenu"
+import SideSelector from "../components/p2pMarket/SideSelector"
+import NotionalSelector from "../components/p2pMarket/NotionalSelector"
 import P2PProChart from "../components/p2pMarket/P2PProChart"
 import type { P2PChartMode } from "../components/p2pMarket/P2PProChart"
+import P2PDualLineChart from "../components/p2pMarket/P2PDualLineChart"
 import MarketStatusPanel from "../components/p2pMarket/MarketStatusPanel"
 import RapidDropAlertCard from "../components/p2pMarket/RapidDropAlertCard"
 import AiFloatingButton from "../components/p2pMarket/AiFloatingButton"
@@ -30,6 +40,14 @@ import P2PAiDrawer from "../components/p2pMarket/P2PAiDrawer"
 import SegmentedControl from "../components/priceHistory/SegmentedControl"
 import { ChartSkeleton, EmptyState } from "../components/priceHistory/states"
 import { LineChartIcon, CandleChartIcon, ResetZoomIcon } from "../components/priceHistory/icons"
+
+// El notional "clásico" (P2PCapture SELL/BUY a este monto) es el único
+// con historial profundo desde antes de esta feature. El resto de los
+// notionals y el modo "Ambos" salen de P2PMarketSnapshot, que recién
+// empezó a acumularse: por eso se muestran por separado, sin fingir
+// que tienen la misma densidad histórica.
+const REFERENCE_NOTIONAL = 500
+const DEFAULT_NOTIONAL_LEVELS = [100, 250, 500, 1000]
 
 const CHART_MODE_OPTIONS: { key: P2PChartMode; label: string }[] = [
   { key: "candles", label: "Velas" },
@@ -91,9 +109,23 @@ type Props = {
 }
 
 export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: Props) {
+  const [side, setSide] = useState<P2PSideSelection>(() => getStoredP2PSide())
+  const [notional, setNotional] = useState<number>(() => getStoredP2PNotional(REFERENCE_NOTIONAL))
+  const [notionalLevels, setNotionalLevels] = useState<number[]>(DEFAULT_NOTIONAL_LEVELS)
+
   const [timeframes, setTimeframes] = useState<P2PSupportedTimeframe[]>([])
   const [timeframe, setTimeframe] = useState<P2PTimeframeKey | null>(null)
-  const [chart, setChart] = useState<P2PHistoryChartResponse | null>(null)
+
+  // Modo "un solo lado" (clásico o notional distinto de la referencia).
+  const [chartCandles, setChartCandles] = useState<P2PChartCandle[]>([])
+  const [chartIndicators, setChartIndicators] = useState<P2PIndicatorSeries>({})
+
+  // Modo "Ambos": dos series independientes desde P2PMarketSnapshot.
+  const [sellCandles, setSellCandles] = useState<P2PSideCandle[]>([])
+  const [buyCandles, setBuyCandles] = useState<P2PSideCandle[]>([])
+
+  const [chartAvailable, setChartAvailable] = useState(true)
+  const [chartReason, setChartReason] = useState<string | null>(null)
   const [chartLoading, setChartLoading] = useState(true)
   const [chartError, setChartError] = useState("")
 
@@ -116,18 +148,53 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
   const aiRequestRef = useRef<AbortController | null>(null)
   const chartHeight = useProChartHeight()
 
+  const isDual = side === "BOTH"
+  const usingClassicSeries = !isDual && notional === REFERENCE_NOTIONAL
+
+  function handleSideChange(next: P2PSideSelection) {
+    setSide(next)
+    setStoredP2PSide(next)
+  }
+
+  function handleNotionalChange(next: number) {
+    setNotional(next)
+    setStoredP2PNotional(next)
+  }
+
   // ---------------------------------------------------------
-  // Snapshot del mercado (indicadores + alertas)
+  // Niveles de notional realmente configurados en el backend.
   // ---------------------------------------------------------
   useEffect(() => {
     const controller = new AbortController()
+
+    getP2PMarketCurrent({ signal: controller.signal })
+      .then((result) => {
+        if (controller.signal.aborted) return
+
+        const levels = Object.keys(result.sell).map(Number).sort((a, b) => a - b)
+
+        if (levels.length) setNotionalLevels(levels)
+      })
+      .catch(() => {
+        // Sin snapshot todavía: se mantienen los niveles por defecto.
+      })
+
+    return () => controller.abort()
+  }, [])
+
+  // ---------------------------------------------------------
+  // Snapshot del mercado (indicadores + alertas) del lado protagonista.
+  // ---------------------------------------------------------
+  useEffect(() => {
+    const controller = new AbortController()
+    const snapshotSide = side === "BOTH" ? "SELL" : side
 
     async function load() {
       try {
         setSnapshotError("")
         setSnapshotLoading(true)
 
-        const result = await getP2PMarketStatus({ signal: controller.signal })
+        const result = await getP2PMarketStatus({ side: snapshotSide, signal: controller.signal })
 
         if (controller.signal.aborted) return
 
@@ -148,7 +215,7 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
     load()
 
     return () => controller.abort()
-  }, [])
+  }, [side])
 
   // ---------------------------------------------------------
   // Disponibilidad de IA (mismo indicador que el historial de precios:
@@ -169,9 +236,38 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
   }, [])
 
   // ---------------------------------------------------------
-  // Velas + indicadores del timeframe activo
+  // Timeframes soportados: se sondean siempre contra la serie clásica
+  // (SELL, notional de referencia), que es la más densa y estable. Es
+  // una aproximación razonable para las otras combinaciones: la
+  // respuesta de cada combinación igual trae su propio `available`
+  // por si esa serie en particular todavía no tiene datos.
   // ---------------------------------------------------------
   useEffect(() => {
+    if (timeframe) return
+
+    const controller = new AbortController()
+
+    getP2PTimeframeCandles("7d", "1h", { side: "SELL", signal: controller.signal })
+      .then((result) => {
+        if (controller.signal.aborted) return
+
+        setTimeframes(result.supported_timeframes)
+        setTimeframe(pickDefaultTimeframe(result.supported_timeframes))
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setTimeframe("1h")
+      })
+
+    return () => controller.abort()
+  }, [timeframe])
+
+  // ---------------------------------------------------------
+  // Datos del chart: clásico (rico en historia) o multi-notional
+  // (nuevo, crece a partir de ahora).
+  // ---------------------------------------------------------
+  useEffect(() => {
+    if (!timeframe) return
+
     const controller = new AbortController()
 
     async function load() {
@@ -179,34 +275,52 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
         setChartError("")
         setChartLoading(true)
 
-        // Primer render: todavía no sabemos qué timeframe pedir, así
-        // que se consulta con uno de referencia solo para leer
-        // `supported_timeframes` y elegir un valor por defecto real.
-        const probeTimeframe = timeframe ?? "1h"
-        const range = RANGE_FOR_TIMEFRAME[probeTimeframe]
+        const range = RANGE_FOR_TIMEFRAME[timeframe as P2PTimeframeKey]
 
-        const result = await getP2PTimeframeCandles(range, probeTimeframe, {
-          indicators: activeIndicators,
-          signal: controller.signal,
-        })
+        if (isDual) {
+          const result = await getP2PNotionalHistory("BOTH", notional, range, timeframe as P2PTimeframeKey, {
+            signal: controller.signal,
+          })
 
-        if (controller.signal.aborted) return
+          if (controller.signal.aborted) return
 
-        setTimeframes(result.supported_timeframes)
+          const data = result.data as { sell: P2PSideCandlesPayload; buy: P2PSideCandlesPayload }
 
-        if (!timeframe) {
-          const resolved = pickDefaultTimeframe(result.supported_timeframes)
+          setSellCandles(data.sell.data)
+          setBuyCandles(data.buy.data)
+          setChartAvailable(data.sell.available || data.buy.available)
+          setChartReason(data.sell.reason ?? data.buy.reason)
+        } else if (usingClassicSeries) {
+          const result = await getP2PTimeframeCandles(range, timeframe as P2PTimeframeKey, {
+            indicators: activeIndicators,
+            side: side as "SELL" | "BUY",
+            signal: controller.signal,
+          })
 
-          if (resolved !== probeTimeframe) {
-            // El timeframe de sondeo no era el ideal: se vuelve a
-            // pedir ya con el correcto antes de pintar nada.
-            setTimeframe(resolved)
-            return
-          }
+          if (controller.signal.aborted) return
+
+          setChartCandles(result.data)
+          setChartIndicators(result.indicators)
+          setChartAvailable(result.timeframe?.available ?? result.data.length > 0)
+          setChartReason(result.timeframe?.reason ?? null)
+        } else {
+          const result = await getP2PNotionalHistory(
+            side as "SELL" | "BUY",
+            notional,
+            range,
+            timeframe as P2PTimeframeKey,
+            { signal: controller.signal },
+          )
+
+          if (controller.signal.aborted) return
+
+          const payload = result.data as P2PSideCandlesPayload
+
+          setChartCandles(payload.data)
+          setChartIndicators({})
+          setChartAvailable(payload.available)
+          setChartReason(payload.reason)
         }
-
-        setChart(result)
-        setTimeframe(probeTimeframe)
       } catch (err) {
         if (controller.signal.aborted) return
 
@@ -221,7 +335,7 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
     load()
 
     return () => controller.abort()
-  }, [timeframe, activeIndicators])
+  }, [timeframe, activeIndicators, side, notional, isDual, usingClassicSeries])
 
   const toggleIndicator = useCallback((key: IndicatorKey) => {
     setActiveIndicators((current) =>
@@ -281,6 +395,14 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
 
   const primaryAlert = snapshot?.alerts[0] ?? null
 
+  const hasChartData = isDual
+    ? sellCandles.length > 0 || buyCandles.length > 0
+    : chartCandles.length > 0
+
+  // En modo Ambos, dos juegos de velas a la vez son difíciles de leer:
+  // se fuerza Línea, igual que pide el diseño.
+  const effectiveChartMode: P2PChartMode = isDual ? "line" : chartMode
+
   return (
     <main className="min-h-dvh bg-[#0a0c11] text-[#e9ebf0]">
       <ProHeader
@@ -315,6 +437,11 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
           )}
 
           <section className="rounded-[16px] border border-white/[0.06] bg-[#12151c] p-3 sm:p-4">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <SideSelector value={side} onChange={handleSideChange} />
+              <NotionalSelector value={notional} onChange={handleNotionalChange} levels={notionalLevels} />
+            </div>
+
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <TimeframeToolbar
                 timeframes={timeframes}
@@ -323,20 +450,24 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
               />
 
               <div className="flex items-center gap-2">
-                <IndicatorsMenu
-                  active={new Set(activeIndicators)}
-                  onToggle={toggleIndicator}
-                />
-
-                <div className="hidden w-[140px] sm:block">
-                  <SegmentedControl
-                    options={CHART_MODE_OPTIONS}
-                    value={chartMode}
-                    onChange={setChartMode}
-                    label="Tipo de gráfico"
-                    size="sm"
+                {usingClassicSeries && (
+                  <IndicatorsMenu
+                    active={new Set(activeIndicators)}
+                    onToggle={toggleIndicator}
                   />
-                </div>
+                )}
+
+                {!isDual && (
+                  <div className="hidden w-[140px] sm:block">
+                    <SegmentedControl
+                      options={CHART_MODE_OPTIONS}
+                      value={chartMode}
+                      onChange={setChartMode}
+                      label="Tipo de gráfico"
+                      size="sm"
+                    />
+                  </div>
+                )}
 
                 <button
                   type="button"
@@ -351,46 +482,62 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
             </div>
 
             {/* Selector de modo compacto solo en móvil, debajo del toolbar de timeframes. */}
-            <div className="mb-2 w-[140px] sm:hidden">
-              <SegmentedControl
-                options={CHART_MODE_OPTIONS}
-                value={chartMode}
-                onChange={setChartMode}
-                label="Tipo de gráfico"
-                size="sm"
-              />
-            </div>
+            {!isDual && (
+              <div className="mb-2 w-[140px] sm:hidden">
+                <SegmentedControl
+                  options={CHART_MODE_OPTIONS}
+                  value={chartMode}
+                  onChange={setChartMode}
+                  label="Tipo de gráfico"
+                  size="sm"
+                />
+              </div>
+            )}
 
-            {chartLoading && !chart ? (
+            {chartLoading && !hasChartData ? (
               <ChartSkeleton height={chartHeight} />
-            ) : chartError && !chart ? (
+            ) : chartError && !hasChartData ? (
               <EmptyState icon="alert" title="No se pudo cargar el gráfico" description={chartError} height={chartHeight} />
-            ) : !chart || chart.data.length === 0 ? (
+            ) : !hasChartData || !chartAvailable ? (
               <EmptyState
-                title="Aún no hay velas en este rango"
-                description="Prueba con otro timeframe o espera a que se acumulen más capturas."
+                title={notional === REFERENCE_NOTIONAL ? "Aún no hay velas en este rango" : "Todavía no hay suficiente historial"}
+                description={
+                  chartReason ??
+                  (notional === REFERENCE_NOTIONAL
+                    ? "Prueba con otro timeframe o espera a que se acumulen más capturas."
+                    : `El precio ponderado para ${notional} USDT empezó a guardarse recién con esta actualización: dale un poco de tiempo para acumular historial.`)
+                }
                 height={chartHeight}
               />
-            ) : (
-              <P2PProChart
-                candles={chart.data}
-                indicators={chart.indicators}
-                activeIndicators={activeIndicators}
+            ) : isDual ? (
+              <P2PDualLineChart
+                sellCandles={sellCandles}
+                buyCandles={buyCandles}
                 intervalSeconds={activeTimeframeMeta?.interval_seconds ?? 3600}
                 height={chartHeight}
                 resetSignal={resetSignal}
-                mode={chartMode}
+              />
+            ) : (
+              <P2PProChart
+                candles={chartCandles}
+                indicators={chartIndicators}
+                activeIndicators={usingClassicSeries ? activeIndicators : []}
+                intervalSeconds={activeTimeframeMeta?.interval_seconds ?? 3600}
+                height={chartHeight}
+                resetSignal={resetSignal}
+                mode={effectiveChartMode}
               />
             )}
           </section>
 
           <p className="mt-3 flex items-center gap-1.5 px-1 text-[11px] text-[#3f4757]">
-            {chartMode === "candles" ? (
+            {effectiveChartMode === "candles" ? (
               <CandleChartIcon className="h-3.5 w-3.5" />
             ) : (
               <LineChartIcon className="h-3.5 w-3.5" />
             )}
-            USDT/VES · SELL · velas de {activeTimeframeMeta?.label ?? timeframe}
+            USDT/VES · {side === "BOTH" ? "SELL + BUY" : side} · {notional} USDT · velas de{" "}
+            {activeTimeframeMeta?.label ?? timeframe}
           </p>
 
           {/* Estado del mercado también aquí en móvil, debajo del chart. */}

@@ -39,11 +39,8 @@ function StatCell({
 
 /**
  * Header de la Vista Profesional: precio + cambio 24h protagonistas,
- * cuatro celdas compactas de contexto y el acceso a Simple/IA.
- *
- * No existe captura histórica de BUY (ver api/services/p2p_history.py):
- * en vez de inventar un precio de compra, la segunda celda compara el
- * único precio real (SELL) contra la tasa BCV real más reciente.
+ * seis celdas compactas de contexto (SELL, BUY, spread real,
+ * máximo/mínimo 24h y premium vs BCV) y el acceso a Simple/IA.
  */
 export default function ProHeader({
   snapshot,
@@ -112,16 +109,20 @@ export default function ProHeader({
         )}
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4">
+      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-3">
         <StatCell
           label="SELL P2P"
-          value={snapshot ? `Bs ${formatBs(snapshot.current_price)}` : "—"}
+          value={snapshot?.sell_price != null ? `Bs ${formatBs(snapshot.sell_price)}` : "—"}
         />
         <StatCell
-          label="Spread vs BCV"
+          label="BUY P2P"
+          value={snapshot?.buy_price != null ? `Bs ${formatBs(snapshot.buy_price)}` : "—"}
+        />
+        <StatCell
+          label="Spread"
           value={
-            snapshot?.spread_percent != null
-              ? `${snapshot.spread_percent >= 0 ? "+" : ""}${snapshot.spread_percent.toFixed(2)}%`
+            snapshot?.spread_percent_market != null
+              ? `${snapshot.spread_percent_market >= 0 ? "+" : ""}${snapshot.spread_percent_market.toFixed(2)}%`
               : "—"
           }
         />
@@ -134,6 +135,14 @@ export default function ProHeader({
           label="Mínimo 24H"
           value={snapshot ? `Bs ${formatBs(snapshot.low)}` : "—"}
           tone="down"
+        />
+        <StatCell
+          label="Premium BCV"
+          value={
+            snapshot?.spread_percent != null
+              ? `${snapshot.spread_percent >= 0 ? "+" : ""}${snapshot.spread_percent.toFixed(2)}%`
+              : "—"
+          }
         />
       </div>
     </header>

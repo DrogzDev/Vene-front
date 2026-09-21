@@ -17,6 +17,10 @@ import type {
   P2PMarketStatusResponse,
   P2PAnalysisRange,
   P2PMarketAnalysisResponse,
+  P2PSide,
+  P2PSideSelection,
+  P2PMarketCurrentResponse,
+  P2PNotionalHistoryResponse,
 } from "../types/prices"
 import { getDeviceId } from "../utils/device"
 
@@ -453,9 +457,9 @@ export async function getP2PHistorySummary(range: P2PHistoryRange) {
 export async function getP2PTimeframeCandles(
   range: P2PHistoryRange,
   timeframe: P2PTimeframeKey,
-  options: { indicators?: string[]; signal?: AbortSignal } = {},
+  options: { indicators?: string[]; side?: P2PSide; signal?: AbortSignal } = {},
 ) {
-  const params = new URLSearchParams({ range, timeframe })
+  const params = new URLSearchParams({ range, timeframe, side: options.side ?? "SELL" })
 
   if (options.indicators?.length) {
     params.set("indicators", options.indicators.join(","))
@@ -478,8 +482,12 @@ export async function getP2PTimeframeCandles(
   return data
 }
 
-export async function getP2PMarketStatus(options: { signal?: AbortSignal } = {}) {
-  const response = await fetch(`${API_BASE}/p2p/market-status/?side=SELL`, {
+export async function getP2PMarketStatus(
+  options: { side?: P2PSide; signal?: AbortSignal } = {},
+) {
+  const side = options.side ?? "SELL"
+
+  const response = await fetch(`${API_BASE}/p2p/market-status/?side=${side}`, {
     signal: options.signal,
   })
 
@@ -528,4 +536,51 @@ export async function getP2PMarketAnalysis(
   }
 
   return data as P2PMarketAnalysisResponse
+}
+
+// =========================================================
+// MERCADO P2P MULTI-NOTIONAL (BUY + SELL, varios tamaños)
+// =========================================================
+
+export async function getP2PMarketCurrent(options: { signal?: AbortSignal } = {}) {
+  const response = await fetch(`${API_BASE}/p2p/market/`, { signal: options.signal })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || !data?.ok) {
+    throw new MarketAnalysisError(
+      data?.error ?? "No se pudo obtener el estado del mercado P2P.",
+      data?.code ?? "error",
+      response.status,
+    )
+  }
+
+  return data as P2PMarketCurrentResponse
+}
+
+export async function getP2PNotionalHistory(
+  side: P2PSideSelection,
+  notional: number,
+  range: string,
+  granularity: P2PTimeframeKey,
+  options: { signal?: AbortSignal } = {},
+) {
+  const params = new URLSearchParams({
+    side,
+    notional: String(notional),
+    range,
+    granularity,
+  })
+
+  const response = await fetch(`${API_BASE}/p2p/history/?${params.toString()}`, {
+    signal: options.signal,
+  })
+
+  const data = await response.json().catch(() => null)
+
+  if (!response.ok || !data?.ok) {
+    throw new Error(data?.error ?? "No se pudo obtener el historial multi-notional.")
+  }
+
+  return data as P2PNotionalHistoryResponse
 }
