@@ -362,7 +362,16 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
     setAiError(null)
 
     try {
-      const result = await getP2PMarketAnalysis("1h", { refresh, signal: controller.signal })
+      // El análisis solo entiende SELL/BUY; en modo "Ambos" se usa
+      // SELL como protagonista (igual que el snapshot del panel).
+      const analysisSide = side === "BOTH" ? "SELL" : side
+
+      const result = await getP2PMarketAnalysis("1h", {
+        side: analysisSide,
+        notional,
+        refresh,
+        signal: controller.signal,
+      })
 
       if (controller.signal.aborted) return
 
@@ -382,7 +391,7 @@ export default function UsdtAnalyzerPro({ viewMode, onViewModeChange, onBack }: 
     } finally {
       if (!controller.signal.aborted) setAiLoading(false)
     }
-  }, [])
+  }, [side, notional])
 
   function openAiDrawer() {
     setAiOpen(true)

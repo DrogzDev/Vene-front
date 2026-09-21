@@ -506,7 +506,7 @@ export async function getP2PMarketStatus(
 
 export async function getP2PMarketAnalysis(
   range: P2PAnalysisRange,
-  options: { refresh?: boolean; signal?: AbortSignal } = {},
+  options: { side?: P2PSide; notional?: number; refresh?: boolean; signal?: AbortSignal } = {},
 ) {
   const response = await fetch(`${API_BASE}/p2p/analysis/`, {
     method: "POST",
@@ -514,12 +514,14 @@ export async function getP2PMarketAnalysis(
       "Content-Type": "application/json",
       "X-Device-ID": getDeviceId(),
     },
-    // El frontend solo dice qué analizar; Django construye el
-    // snapshot real y nunca confía en cifras enviadas desde aquí.
+    // El frontend solo dice qué analizar (lado, notional, rango);
+    // Django construye el snapshot real y nunca confía en cifras
+    // enviadas desde aquí.
     body: JSON.stringify({
       source: "binance_p2p",
-      side: "SELL",
+      side: options.side ?? "SELL",
       range,
+      notional: options.notional,
       refresh: options.refresh ?? false,
     }),
     signal: options.signal,

@@ -67,7 +67,11 @@ export default function P2PAiDrawer({
       ariaLabel="Análisis del mercado"
       icon={<SparkleIcon className="h-4 w-4 shrink-0 text-[#a78bfa]" />}
       title="Análisis del mercado"
-      subtitle="USDT P2P · Binance"
+      subtitle={
+        snapshot
+          ? `USDT P2P · ${snapshot.side} · ${snapshot.notional_selected} USDT`
+          : "USDT P2P · Binance"
+      }
       footer={
         hasResult || error ? (
           <>
