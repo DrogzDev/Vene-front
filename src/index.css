@@ -8,9 +8,49 @@ body,
   min-height: 100%;
 }
 
+:root {
+  /* Alto de la navegación inferior (sin la safe area). Vive aquí además
+     de en los tokens de Tailwind porque AppShell la necesita dentro de
+     un calc() en línea. */
+  --nav-h: 64px;
+
+  /* Safe areas. Capacitor 8 (Android 15+, edge-to-edge) inyecta
+     --safe-area-inset-* en <html>; en WebViews antiguos env() vale 0
+     y el contenido se metía debajo de la barra de estado. Se prefiere
+     la variable de Capacitor y, si no existe, env() (navegador/iOS). */
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+html {
+  /* Evita que iOS/Android reescalen el texto en rotación y rompan la
+     jerarquía tipográfica. */
+  -webkit-text-size-adjust: 100%;
+  background-color: #06080c;
+
+  /* También en html, no solo en body.
+     Si la página desborda en horizontal, el WebView de Android se aleja
+     para encajarla y agranda el viewport de LAYOUT respecto al visible;
+     entonces cualquier elemento `fixed bottom-0` —la navegación
+     inferior— queda anclado por debajo de la pantalla y se vuelve
+     invisible e intocable hasta que algo provoca un reflujo. */
+  overflow-x: hidden;
+}
+
 body {
   margin: 0;
-  font-family: Arial, Helvetica, sans-serif;
+  /* La familia sale de los tokens de Tailwind (theme.fontFamily.sans),
+     así que aquí solo se afina el renderizado. */
+  @apply bg-bg font-sans text-ink antialiased;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Ninguna pantalla debe poder desplazarse en horizontal. */
+  overflow-x: hidden;
+}
+
+/* Las superficies táctiles no deben mostrar el flash azul de Android. */
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 
 @keyframes fadeUp {
@@ -66,22 +106,6 @@ body {
   }
 }
 
-/* Entrada del Price Hero y de los números al cambiar de período. */
-@keyframes heroIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-hero-in {
-  animation: heroIn 260ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
 @keyframes fadeInFast {
   from {
     opacity: 0;
@@ -93,38 +117,6 @@ body {
 
 .animate-fade-in-fast {
   animation: fadeInFast 180ms ease-out both;
-}
-
-/* Bottom sheet del análisis IA en móvil. */
-@keyframes sheetUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-sheet-up {
-  animation: sheetUp 300ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-/* Panel lateral del análisis IA en escritorio. */
-@keyframes panelIn {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.animate-panel-in {
-  animation: panelIn 280ms cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 /* Skeletons: un latido más discreto que el `animate-pulse` estándar. */
@@ -165,4 +157,43 @@ body {
 /* El canvas de lightweight-charts nunca debe desbordar en móvil. */
 .tv-lightweight-charts {
   max-width: 100%;
+}
+
+/* =========================================================
+   MICROINTERACCIONES DE LA APP
+   ========================================================= */
+
+/* Cifras alineadas: los precios no "bailan" al cambiar. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fila con scroll horizontal (timeframes, chips). Sin barra visible y
+   con snap suave; el resto de la página nunca desborda. */
+.scroll-x {
+  display: flex;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-x > * {
+  scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Barras de scroll ocultas en los carruseles de píldoras. Existía ya
+   como par de clases arbitrarias repetidas en tres componentes. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

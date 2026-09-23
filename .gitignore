@@ -27,3 +27,6 @@ dist-ssr
 .env.production 
 node_modules/ 
 dist/ 
+
+# Proyecto nativo Android (Capacitor): se genera y compila en local, no va al repo
+android/

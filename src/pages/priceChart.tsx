@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useSearchParams } from "react-router-dom"
+import { ChartCandlestick, ChartLine, Sparkles } from "lucide-react"
 
 import {
   MarketAnalysisError,
   getMarketAnalysis,
   getMarketAnalysisStatus,
   getPriceHistoryChart,
+  peekPriceChart,
 } from "../services/pricesApi"
+import { onAppResume } from "../services/appLifecycle"
 import type {
   MarketAnalysis,
   MarketAnalysisContext,
@@ -27,52 +30,60 @@ import {
   PriceHeroSkeleton,
 } from "../components/priceHistory/states"
 import {
-  CandleChartIcon,
-  ChevronLeftIcon,
-  LineChartIcon,
-  ResetZoomIcon,
-  SparkleIcon,
-} from "../components/priceHistory/icons"
-import {
   RANGE_OPTIONS,
   getRangeOption,
   getSourceOption,
 } from "../components/priceHistory/theme"
+import AppShell from "../components/shell/AppShell"
+import AppHeader from "../components/shell/AppHeader"
+import { VcIcon } from "../components/ui/VcIcon"
+import PeriodEvents from "../components/priceHistory/PeriodEvents"
+import PeriodAnalysisCard from "../components/priceHistory/PeriodAnalysisCard"
+import { COLORS, priceChangeColor } from "../components/priceHistory/theme"
+import { ChartCard, ChartToolbar } from "../components/ui/ChartCard"
+import FullscreenChart from "../components/ui/FullscreenChart"
+import { MetricCell, MetricGrid, Notice } from "../components/ui/primitives"
+import { formatBs } from "../utils/format"
+import { useCrossfade } from "../motion/useCrossfade"
 
 const CHART_MODE_OPTIONS: { key: ChartMode; label: string }[] = [
   { key: "line", label: "Línea" },
   { key: "candles", label: "Velas" },
 ]
 
+function bs(value: number | null) {
+  return value === null ? "—" : formatBs(value)
+}
+
 /**
- * Altura del gráfico según el ancho disponible.
- *
- * En teléfono el gráfico es el elemento con más peso de la pantalla;
- * en escritorio crece para que siga siendo el protagonista sin
- * estirarse hasta ser incómodo de leer.
+ * Alto del gráfico en teléfono, en CSS puro: sigue al viewport real
+ * (orientación, barras del sistema, WebView de Capacitor) sin leer
+ * window.innerHeight. Deja asomar las métricas cerca del pliegue.
+ */
+const MOBILE_CHART_HEIGHT = "clamp(240px, 33dvh, 300px)"
+
+/**
+ * Altura del gráfico según el ancho disponible. En escritorio crece para
+ * seguir siendo el protagonista sin estirarse hasta ser incómodo.
  */
 function useChartHeight() {
-  const [height, setHeight] = useState(300)
+  const [height, setHeight] = useState<number | string>(MOBILE_CHART_HEIGHT)
 
   useEffect(() => {
-    function update() {
-      const width = window.innerWidth
+    const tablet = window.matchMedia("(min-width: 640px)")
+    const desktop = window.matchMedia("(min-width: 1024px)")
 
-      if (width >= 1024) {
-        setHeight(420)
-      } else if (width >= 640) {
-        setHeight(360)
-      } else {
-        // Aproximadamente media pantalla, con un mínimo utilizable.
-        setHeight(Math.max(280, Math.min(340, Math.round(window.innerHeight * 0.42))))
-      }
+    function update() {
+      setHeight(desktop.matches ? 420 : tablet.matches ? 360 : MOBILE_CHART_HEIGHT)
     }
 
     update()
-    window.addEventListener("resize", update)
+    tablet.addEventListener("change", update)
+    desktop.addEventListener("change", update)
 
     return () => {
-      window.removeEventListener("resize", update)
+      tablet.removeEventListener("change", update)
+      desktop.removeEventListener("change", update)
     }
   }, [])
 
@@ -80,13 +91,23 @@ function useChartHeight() {
 }
 
 export default function PriceChartPage() {
-  const navigate = useNavigate()
-
   const [range, setRange] = useState<PriceChartRange>("24h")
-  const [source, setSource] = useState<PriceSource>("average")
-  const [mode, setMode] = useState<ChartMode>("line")
+  // ?series=bcv|usdt|average: así una notificación de alerta BCV o
+  // Promedio abre el historial directamente en esa serie.
+  const [searchParams] = useSearchParams()
+  const [source, setSource] = useState<PriceSource>(() => {
+    const series = searchParams.get("series")
 
-  const [chart, setChart] = useState<PriceHistoryChartResponse | null>(null)
+    return series === "bcv" || series === "usdt" || series === "average" || series === "eur" ? series : "average"
+  })
+  const [mode, setMode] = useState<ChartMode>("line")
+  const [expanded, setExpanded] = useState(false)
+
+  // Lo último conocido de esta gráfica se pinta al instante.
+  const [chart, setChart] = useState<PriceHistoryChartResponse | null>(() => peekPriceChart("24h", source))
+  const [resumeTick, setResumeTick] = useState(0)
+
+  useEffect(() => onAppResume(() => setResumeTick((tick) => tick + 1)), [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [usingCache, setUsingCache] = useState(false)
@@ -105,6 +126,16 @@ export default function PriceChartPage() {
 
   const chartHeight = useChartHeight()
 
+  const heroRef = useRef<HTMLDivElement | null>(null)
+  const chartAreaRef = useRef<HTMLDivElement | null>(null)
+
+  // Otro período u otra fuente: el precio entra de nuevo y el gráfico
+  // hace una transición breve. No se anima ningún punto.
+  useCrossfade(heroRef, `${range}-${source}`, { fromOpacity: 0, y: 6 })
+  useCrossfade(chartAreaRef, `${range}-${source}-${mode}`)
+
+  const closeExpanded = useCallback(() => setExpanded(false), [])
+
   // ---------------------------------------------------------
   // Carga del histórico
   // ---------------------------------------------------------
@@ -115,6 +146,10 @@ export default function PriceChartPage() {
       try {
         setError("")
         setLoading(true)
+
+        // Cambiar de rango o fuente muestra al instante lo guardado.
+        const cached = peekPriceChart(range, source)
+        if (cached) setChart(cached)
 
         const result = await getPriceHistoryChart(range, source, {
           signal: controller.signal,
@@ -139,7 +174,8 @@ export default function PriceChartPage() {
     return () => {
       controller.abort()
     }
-  }, [range, source])
+    // resumeTick: al volver a la app o recuperar la red se revalida.
+  }, [range, source, resumeTick])
 
   // ---------------------------------------------------------
   // Disponibilidad de la IA
@@ -237,217 +273,185 @@ export default function PriceChartPage() {
 
   const rangeLabel = getRangeOption(range).long
 
-  return (
-    <main className="min-h-dvh bg-[#0a0c11] text-[#e9ebf0]">
-      {/* Halo muy tenue detrás de la cabecera: da profundidad sin
-          convertirse en un degradado enorme. */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 top-0 h-64 opacity-60"
-        style={{
-          background: `radial-gradient(60% 100% at 50% 0%, ${sourceOption.color}14 0%, transparent 70%)`,
-        }}
+  const changePercent = summary?.change_percent ?? null
+  const changeTone = changePercent == null ? "neutral" : changePercent > 0 ? "up" : changePercent < 0 ? "down" : "neutral"
+
+  // El color cuenta cómo se movió el período: verde si el precio subió,
+  // rojo si bajó (convención del mercado). Sin variación, neutro.
+  const chartSource = useMemo(
+    () => ({
+      ...sourceOption,
+      color: priceChangeColor(changePercent, COLORS.textSoft),
+    }),
+    [sourceOption, changePercent],
+  )
+
+  function renderChart(height: number | string) {
+    if (loading && !hasPoints) return <ChartSkeleton height={height} />
+
+    if (error && !hasPoints) {
+      return <EmptyState icon="alert" title="La gráfica no está disponible" description={error} height={height} />
+    }
+
+    if (!hasPoints) {
+      return (
+        <EmptyState
+          title="Aún no hay datos suficientes"
+          description={
+            range === "24h"
+              ? "Todavía no se registraron actualizaciones de precio en las últimas 24 horas."
+              : "No hay cierres diarios guardados para este rango."
+          }
+          height={height}
+        />
+      )
+    }
+
+    if (mode === "candles" && !candlesAvailable) {
+      return (
+        <EmptyState
+          title="Sin datos suficientes para velas"
+          description={candles?.unavailable_reason ?? "Hacen falta más muestras en este período para construir velas."}
+          height={height}
+        />
+      )
+    }
+
+    return (
+      <PriceChart
+        points={points}
+        candles={candles?.data ?? []}
+        mode={mode}
+        source={chartSource}
+        sourceKey={source}
+        range={range}
+        interval={candles?.interval ?? "hour"}
+        height={height}
+        resetSignal={resetSignal}
       />
+    )
+  }
 
-      <div
-        className="relative mx-auto w-full max-w-[720px] px-4 pb-10 lg:max-w-[960px] lg:px-6"
-        style={{
-          paddingTop: "calc(1rem + env(safe-area-inset-top, 0px))",
-          paddingBottom: "calc(2.5rem + env(safe-area-inset-bottom, 0px))",
-        }}
-      >
-        {/* ================= HEADER ================= */}
-        <header className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            aria-label="Volver"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-white/[0.03] text-[#c9cfda] outline-none transition duration-200 hover:border-white/15 hover:bg-white/[0.07] hover:text-white focus-visible:ring-2 focus-visible:ring-white/30 active:scale-95"
-          >
-            <ChevronLeftIcon className="h-[18px] w-[18px]" />
-          </button>
+  return (
+    <>
+      <AppShell>
+        <AppHeader
+          variant="tab"
+          icon={<VcIcon name="history-ring" className="h-[18px] w-[18px]" />}
+          title="Historial de precios"
+          subtitle="Consulta. Analiza. Entiende."
+          actions={
+            aiAvailable ? (
+              <button
+                type="button"
+                onClick={openAnalysis}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-brand/15 px-3.5 text-[13px] font-semibold text-brand-light outline-none transition duration-150 hover:bg-brand/20 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97]"
+              >
+                <Sparkles className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+                Analizar
+              </button>
+            ) : undefined
+          }
+        />
 
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[15px] font-bold leading-tight tracking-tight">
-              Historial de precios
-            </h1>
-            <p className="truncate text-[11px] text-[#646d7d]">
-              Fluctuación del dólar y USDT
-            </p>
-          </div>
-
-          {aiAvailable && (
-            <button
-              type="button"
-              onClick={openAnalysis}
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[#a78bfa]/25 bg-[#a78bfa]/[0.09] px-3 text-xs font-semibold text-[#c4b5fd] outline-none transition duration-200 hover:border-[#a78bfa]/45 hover:bg-[#a78bfa]/[0.16] focus-visible:ring-2 focus-visible:ring-[#a78bfa]/50 active:scale-[0.97]"
-            >
-              <SparkleIcon className="h-3.5 w-3.5" />
-              Analizar
-            </button>
-          )}
-        </header>
-
-        {/* ================= CONTROLES ================= */}
-        <div className="mt-5">
+        <div className="space-y-3">
+          {/* ================= CONTROLES ================= */}
           <SegmentedControl
             options={RANGE_OPTIONS.map(({ key, label }) => ({ key, label }))}
             value={range}
             onChange={setRange}
             label="Período"
+            size="sm"
           />
-        </div>
 
-        <div className="mt-3">
           <SourceChips value={source} onChange={setSource} />
-        </div>
 
-        {usingCache && (
-          <p className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5 text-[11px] text-[#8b93a3]">
-            Sin conexión con el servidor: se muestran los últimos datos guardados
-            en este dispositivo.
-          </p>
-        )}
-
-        {/* ================= PRICE HERO ================= */}
-        <section className="mt-5 rounded-[20px] border border-white/[0.06] bg-[#12151c] p-5">
-          {loading && !summary ? (
-            <PriceHeroSkeleton />
-          ) : error && !summary ? (
-            <EmptyState
-              icon="alert"
-              title="No se pudieron cargar los precios"
-              description={error}
-            />
-          ) : summary ? (
-            <PriceHero summary={summary} source={sourceOption} range={range} />
-          ) : (
-            <EmptyState
-              title="Sin datos en este período"
-              description={`Todavía no hay precios registrados para ${rangeLabel}.`}
-            />
+          {usingCache && (
+            <Notice tone="warn">Sin conexión: se muestran los últimos datos guardados en este dispositivo.</Notice>
           )}
-        </section>
 
-        {/* ================= GRÁFICO ================= */}
-        <section className="mt-4 rounded-[20px] border border-white/[0.06] bg-[#12151c] p-3 sm:p-4">
-          {/* Controles del gráfico. */}
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="w-[168px]">
-              <SegmentedControl
-                options={CHART_MODE_OPTIONS}
-                value={mode}
-                onChange={setMode}
-                label="Tipo de gráfico"
-                size="sm"
-              />
+          {/* ================= PRECIO + GRÁFICO (una sola card) ================= */}
+          <ChartCard>
+            <div ref={heroRef} className="px-1 pt-1">
+              {loading && !summary ? (
+                <PriceHeroSkeleton />
+              ) : error && !summary ? (
+                <p className="text-[13px] text-down">No se pudieron cargar los precios.</p>
+              ) : summary ? (
+                <PriceHero summary={summary} source={sourceOption} range={range} />
+              ) : (
+                <p className="text-[13px] text-ink-muted">Todavía no hay precios registrados para {rangeLabel}.</p>
+              )}
             </div>
 
-            <button
-              type="button"
-              onClick={() => setResetSignal((value) => value + 1)}
-              aria-label="Restablecer zoom"
-              title="Restablecer zoom"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.06] bg-white/[0.02] text-[#8b93a3] outline-none transition duration-200 hover:border-white/15 hover:text-white focus-visible:ring-2 focus-visible:ring-white/30 active:scale-95"
+            <ChartToolbar
+              className="mt-2"
+              onReset={() => setResetSignal((value) => value + 1)}
+              onExpand={hasPoints ? () => setExpanded(true) : undefined}
             >
-              <ResetZoomIcon />
-            </button>
-          </div>
+              <div className="w-[152px]">
+                <SegmentedControl options={CHART_MODE_OPTIONS} value={mode} onChange={setMode} label="Tipo de gráfico" size="xs" />
+              </div>
+            </ChartToolbar>
 
-          {loading && !hasPoints ? (
-            <ChartSkeleton height={chartHeight} />
-          ) : error && !hasPoints ? (
-            <EmptyState
-              icon="alert"
-              title="La gráfica no está disponible"
-              description={error}
-              height={chartHeight}
-            />
-          ) : !hasPoints ? (
-            <EmptyState
-              title="Aún no hay datos suficientes"
-              description={
-                range === "24h"
-                  ? "Todavía no se registraron actualizaciones de precio en las últimas 24 horas."
-                  : "No hay cierres diarios guardados para este rango."
-              }
-              height={chartHeight}
-            />
-          ) : mode === "candles" && !candlesAvailable ? (
-            <EmptyState
-              title="Sin datos suficientes para velas"
-              description={
-                candles?.unavailable_reason ??
-                "Hacen falta más muestras en este período para construir velas."
-              }
-              height={chartHeight}
-            />
-          ) : (
-            <PriceChart
-              points={points}
-              candles={candles?.data ?? []}
-              mode={mode}
-              source={sourceOption}
-              sourceKey={source}
-              range={range}
-              interval={candles?.interval ?? "hour"}
-              height={chartHeight}
-              resetSignal={resetSignal}
-            />
-          )}
+            <div ref={chartAreaRef} className="mt-1">
+              {renderChart(chartHeight)}
+            </div>
 
-          {mode === "candles" && candlesAvailable && candles?.low_detail && (
-            <p className="mt-2 px-1 text-[11px] leading-relaxed text-[#4d5665]">
-              Cada vela contiene una sola muestra, así que el recorrido interno
-              del intervalo no se puede representar.
+            {mode === "candles" && candlesAvailable && candles?.low_detail && (
+              <p className="mt-2 px-1 text-[11px] leading-relaxed text-ink-faint">
+                Cada vela contiene una sola muestra, así que el recorrido interno del intervalo no se puede representar.
+              </p>
+            )}
+
+            <p className="mt-2 flex items-center gap-1.5 px-1 text-[11px] text-ink-faint">
+              {mode === "line" ? (
+                <ChartLine className="h-3.5 w-3.5" aria-hidden />
+              ) : (
+                <ChartCandlestick className="h-3.5 w-3.5" aria-hidden />
+              )}
+              {mode === "line"
+                ? `${sourceOption.label} · ${rangeLabel}`
+                : `${sourceOption.label} · velas por ${candles?.interval === "day" ? "día" : "hora"}`}
             </p>
-          )}
-        </section>
+          </ChartCard>
 
-        {/* ================= ACCESO AL ANÁLISIS ================= */}
-        <section className="mt-4">
+          {/* ================= MÉTRICAS 3×2 ================= */}
+          {summary && (
+            <MetricGrid columns={3}>
+              <MetricCell compact label="Apertura" value={bs(summary.open)} />
+              <MetricCell compact label="Máximo" value={bs(summary.high)} tone="up" />
+              <MetricCell compact label="Mínimo" value={bs(summary.low)} tone="down" />
+              <MetricCell compact label="Cierre" value={bs(summary.close)} />
+              <MetricCell
+                compact
+                label="Variación"
+                value={summary.change == null ? "—" : `${summary.change > 0 ? "+" : summary.change < 0 ? "−" : ""}${formatBs(Math.abs(summary.change))}`}
+                tone={changeTone}
+              />
+              <MetricCell compact label="Promedio" value={bs(summary.average)} />
+            </MetricGrid>
+          )}
+
+          {/* ================= EVENTOS ================= */}
+          {summary && <PeriodEvents summary={summary} points={points} source={source} range={range} />}
+
+          {/* ================= ANÁLISIS DEL PERÍODO ================= */}
           {aiAvailable ? (
-            <button
-              type="button"
-              onClick={openAnalysis}
-              className="flex w-full items-center gap-3 rounded-[20px] border border-white/[0.06] bg-[#12151c] px-4 py-4 text-left outline-none transition duration-200 hover:border-[#a78bfa]/30 hover:bg-[#151823] focus-visible:ring-2 focus-visible:ring-[#a78bfa]/50 active:scale-[0.995]"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#a78bfa]/[0.12] text-[#c4b5fd]">
-                <SparkleIcon className="h-4 w-4" />
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-[#e9ebf0]">
-                  Analizar período
-                </span>
-                <span className="block truncate text-[11px] text-[#646d7d]">
-                  Qué ocurrió con {sourceOption.label} en {rangeLabel}
-                </span>
-              </span>
-
-              <ChevronLeftIcon className="h-4 w-4 rotate-180 shrink-0 text-[#4d5665]" />
-            </button>
+            <PeriodAnalysisCard
+              analysis={aiAnalysis}
+              fallback={`Qué ocurrió con ${sourceOption.label} en ${rangeLabel}.`}
+              onOpen={openAnalysis}
+            />
           ) : (
-            <p className="rounded-[20px] border border-white/[0.05] bg-white/[0.015] px-4 py-3.5 text-[11px] text-[#4d5665]">
-              Análisis IA no disponible temporalmente.
-            </p>
+            <Notice>Análisis IA no disponible temporalmente.</Notice>
           )}
-        </section>
+        </div>
+      </AppShell>
 
-        {/* Leyenda discreta del modo activo, útil en pantallas pequeñas. */}
-        <p className="mt-4 flex items-center gap-1.5 px-1 text-[11px] text-[#3f4757]">
-          {mode === "line" ? (
-            <LineChartIcon className="h-3.5 w-3.5" />
-          ) : (
-            <CandleChartIcon className="h-3.5 w-3.5" />
-          )}
-          {mode === "line"
-            ? `${sourceOption.label} · ${rangeLabel}`
-            : `${sourceOption.label} · velas por ${
-                candles?.interval === "day" ? "día" : "hora"
-              }`}
-        </p>
-      </div>
+      <FullscreenChart open={expanded} onClose={closeExpanded} title={sourceOption.label} subtitle={rangeLabel}>
+        {(height) => renderChart(height)}
+      </FullscreenChart>
 
       <AiAnalysisPanel
         open={aiOpen}
@@ -459,6 +463,6 @@ export default function PriceChartPage() {
         onClose={() => setAiOpen(false)}
         onRefresh={() => runAnalysis({ refresh: true })}
       />
-    </main>
+    </>
   )
 }

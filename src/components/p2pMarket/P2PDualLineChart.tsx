@@ -252,34 +252,34 @@ export default function P2PDualLineChart({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pb-1.5 text-[11px] tabular-nums">
         {displayed ? (
           <>
-            <span className="flex items-center gap-1.5 text-[#646d7d]">
+            <span className="flex items-center gap-1.5 text-ink-faint">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: SELL_COLOR }} />
               Vender{" "}
-              <span className="font-semibold text-[#d7dbe3]">
+              <span className="font-semibold text-ink-soft">
                 {displayed.sellPrice != null ? `Bs ${formatBs(displayed.sellPrice)}` : "—"}
               </span>
             </span>
-            <span className="flex items-center gap-1.5 text-[#646d7d]">
+            <span className="flex items-center gap-1.5 text-ink-faint">
               <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BUY_COLOR }} />
               Comprar{" "}
-              <span className="font-semibold text-[#d7dbe3]">
+              <span className="font-semibold text-ink-soft">
                 {displayed.buyPrice != null ? `Bs ${formatBs(displayed.buyPrice)}` : "—"}
               </span>
             </span>
             {displayed.spreadPercent != null && (
-              <span className="text-[#8b93a3]">
+              <span className="text-ink-muted">
                 Spread{" "}
-                <span className="font-semibold text-[#d7dbe3]">
+                <span className="font-semibold text-ink-soft">
                   {displayed.spreadPercent.toFixed(2)}%
                 </span>
               </span>
             )}
-            <span className="hidden text-[#4d5665] sm:inline">
+            <span className="hidden text-ink-faint sm:inline">
               {formatReadoutTime(displayed.time, readoutInterval)}
             </span>
           </>
         ) : (
-          <span className="text-[#4d5665]">Sin datos en este rango todavía</span>
+          <span className="text-ink-faint">Sin datos en este rango todavía</span>
         )}
       </div>
 

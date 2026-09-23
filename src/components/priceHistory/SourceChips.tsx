@@ -18,7 +18,7 @@ export default function SourceChips({ value, onChange }: Props) {
     <div
       role="radiogroup"
       aria-label="Fuente del precio"
-      className="-mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-0.5"
     >
       {SOURCE_OPTIONS.map((option) => {
         const isActive = option.key === value
@@ -30,10 +30,10 @@ export default function SourceChips({ value, onChange }: Props) {
             role="radio"
             aria-checked={isActive}
             onClick={() => onChange(option.key)}
-            className={`inline-flex h-9 shrink-0 snap-start items-center gap-2 rounded-full border px-3.5 text-xs font-semibold tracking-tight outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-white/30 active:scale-[0.97] ${
+            className={`inline-flex h-10 shrink-0 snap-start items-center gap-2 rounded-full border px-4 text-[13px] font-semibold tracking-tight outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97] ${
               isActive
                 ? "border-transparent text-white"
-                : "border-white/[0.07] bg-white/[0.02] text-[#8b93a3] hover:border-white/15 hover:text-[#c9cfda]"
+                : "border-hair bg-surface text-ink-muted hover:bg-surface-raised hover:text-ink-soft"
             }`}
             style={
               isActive

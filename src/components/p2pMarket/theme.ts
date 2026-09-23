@@ -24,14 +24,15 @@ export const RISK_LABELS: Record<P2PRiskLevel, string> = {
   high: "Alto",
 }
 
+/** Tendencia del mercado USDT/VES: alcista verde, bajista roja (ver PRICE). */
 export function trendColor(trend: P2PTrend) {
-  if (trend === "bullish") return "#34d399"
-  if (trend === "bearish") return "#f87171"
-  return "#8b93a3"
+  if (trend === "bullish") return "#20D6A0"
+  if (trend === "bearish") return "#FF5D69"
+  return "#8B98A8"
 }
 
 export function riskColor(risk: P2PRiskLevel) {
-  if (risk === "low") return "#34d399"
-  if (risk === "normal") return "#8b93a3"
-  return "#f87171"
+  if (risk === "low") return "#20D6A0"
+  if (risk === "normal") return "#8B98A8"
+  return "#FF5D69"
 }

@@ -4,6 +4,8 @@ import { TREND_LABELS, VOLATILITY_LABELS, trendColor } from "./theme"
 
 type Props = {
   snapshot: P2PMarketSnapshot
+  /** Sin card ni título propios: va dentro de un bloque plegable. */
+  embedded?: boolean
 }
 
 function Row({
@@ -17,8 +19,8 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-2.5">
-      <span className="text-xs text-[#8b93a3]">{label}</span>
-      <span className="text-sm font-semibold tabular-nums" style={{ color: tone }}>
+      <span className="text-[12px] text-ink-muted">{label}</span>
+      <span className="text-[14px] font-bold tabular-nums" style={{ color: tone }}>
         {value}
       </span>
     </div>
@@ -30,32 +32,34 @@ function Row({
  * chart en móvil. Todos los valores salen del mismo snapshot que
  * consume el análisis con IA (api/services/p2p_history.py::build_market_snapshot).
  */
-export default function MarketStatusPanel({ snapshot }: Props) {
+export default function MarketStatusPanel({ snapshot, embedded = false }: Props) {
   const trend = snapshot.trend
   const momentum1h = snapshot.change_1h
 
   return (
-    <div className="rounded-[16px] border border-white/[0.06] bg-[#12151c] p-4">
-      <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-[#8b93a3]">
-        Estado del mercado
-      </h2>
+    <div className={embedded ? "" : "rounded-card border border-hair bg-surface p-4"}>
+      {!embedded && (
+        <h2 className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-faint">
+          Estado del mercado
+        </h2>
+      )}
 
-      <div className="mt-1 divide-y divide-white/[0.05]">
+      <div className="mt-1 divide-y divide-hair">
         <Row label="Tendencia" value={TREND_LABELS[trend]} tone={trendColor(trend)} />
         <Row
           label="Momentum 1H"
           value={momentum1h != null ? `${momentum1h >= 0 ? "+" : ""}${momentum1h.toFixed(2)}%` : "—"}
-          tone={momentum1h != null ? (momentum1h >= 0 ? "#34d399" : "#f87171") : "#d7dbe3"}
+          tone={momentum1h != null ? (momentum1h >= 0 ? "#20D6A0" : "#FF5D69") : "#d7dbe3"}
         />
         <Row
           label="Volatilidad"
           value={VOLATILITY_LABELS[snapshot.volatility]}
-          tone="#d7dbe3"
+          tone="#F5F7FB"
         />
         <Row
           label="Percentil 7D"
           value={snapshot.percentile_7d != null ? `${snapshot.percentile_7d}%` : "—"}
-          tone="#d7dbe3"
+          tone="#F5F7FB"
         />
         <Row
           label="Desde máximo"
@@ -64,12 +68,12 @@ export default function MarketStatusPanel({ snapshot }: Props) {
               ? `${snapshot.distance_from_high.toFixed(2)}%`
               : "—"
           }
-          tone="#f87171"
+          tone="#FF5D69"
         />
         <Row
           label={`${snapshot.opposite_side === "BUY" ? "BUY" : "SELL"} (contrario)`}
           value={snapshot.opposite_price != null ? `Bs ${formatBs(snapshot.opposite_price)}` : "—"}
-          tone="#d7dbe3"
+          tone="#F5F7FB"
         />
         <Row
           label="Spread SELL-BUY"
@@ -78,12 +82,12 @@ export default function MarketStatusPanel({ snapshot }: Props) {
               ? `${snapshot.spread_percent_market.toFixed(2)}%`
               : "—"
           }
-          tone="#d7dbe3"
+          tone="#F5F7FB"
         />
         <Row
           label="Premium vs BCV"
           value={snapshot.spread_percent != null ? `${snapshot.spread_percent.toFixed(2)}%` : "—"}
-          tone="#d7dbe3"
+          tone="#F5F7FB"
         />
         {snapshot.liquidity && (
           <Row
@@ -93,19 +97,19 @@ export default function MarketStatusPanel({ snapshot }: Props) {
                 ? `${Math.round(snapshot.liquidity.sell).toLocaleString("es-VE")} USDT`
                 : "—"
             }
-            tone="#d7dbe3"
+            tone="#F5F7FB"
           />
         )}
       </div>
 
       {snapshot.bcv_reference_price != null && (
-        <p className="mt-2 text-[11px] text-[#4d5665]">
+        <p className="mt-2 text-[11px] text-ink-faint">
           Tasa BCV de referencia: Bs {formatBs(snapshot.bcv_reference_price)}
         </p>
       )}
 
       {snapshot.trend_insufficient_data && (
-        <p className="mt-1 text-[11px] text-[#4d5665]">
+        <p className="mt-1 text-[11px] text-ink-faint">
           Todavía no hay suficiente historial para una tendencia confiable.
         </p>
       )}

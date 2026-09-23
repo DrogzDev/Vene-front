@@ -30,6 +30,62 @@ import { getDeviceId } from "../utils/device"
 
 const API_BASE = import.meta.env.VITE_API_URL
 const HOME_PRICES_CACHE_KEY = "vex_home_prices_cache"
+
+/*
+ * Caché compartida para que la app se sienta instantánea.
+ *
+ * - En memoria: todas las pantallas comparten los mismos datos durante la
+ *   sesión (Inicio y Convertir ya no piden /prices/home/ cada uno).
+ * - Pedidos deduplicados: si dos pantallas piden lo mismo a la vez, sale
+ *   UNA sola petición.
+ * - Ventana de frescura: un dato pedido hace segundos no se vuelve a pedir.
+ * - peek*(): lo último conocido (memoria o localStorage) SIN esperar a la
+ *   red, para pintar al instante y revalidar por detrás.
+ *
+ * Nada de esto inventa datos: lo que se pinta desde caché lleva su propia
+ * hora de actualización del servidor.
+ */
+const HOME_FRESH_MS = 30_000
+const DAILY_CLOSE_FRESH_MS = 5 * 60_000
+const PRICE_CHART_FRESH_MS = 60_000
+const MARKET_STATUS_FRESH_MS = 30_000
+const MARKET_STATUS_CACHE_KEY_PREFIX = "vex_p2p_market_status_"
+
+type MemoryEntry = { value: unknown; fetchedAt: number }
+
+const memory = new Map<string, MemoryEntry>()
+const inflight = new Map<string, Promise<unknown>>()
+
+function remember(key: string, value: unknown) {
+  memory.set(key, { value, fetchedAt: Date.now() })
+}
+
+function recall<T>(key: string, maxAgeMs = Number.POSITIVE_INFINITY): T | null {
+  const entry = memory.get(key)
+
+  if (!entry || Date.now() - entry.fetchedAt > maxAgeMs) return null
+
+  return entry.value as T
+}
+
+function dedupe<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const existing = inflight.get(key)
+
+  if (existing) return existing as Promise<T>
+
+  const promise = run().finally(() => inflight.delete(key))
+  inflight.set(key, promise)
+
+  return promise
+}
+
+function safeSetItem(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    // Sin espacio o sin almacenamiento: la caché en memoria sigue sirviendo.
+  }
+}
 const DAILY_CLOSE_HISTORY_CACHE_KEY = "vex_daily_close_history_cache"
 
 type CachedHomePrices = {
@@ -48,7 +104,7 @@ function saveHomePricesToCache(data: PricesHomeData) {
     cachedAt: new Date().toISOString(),
   }
 
-  localStorage.setItem(HOME_PRICES_CACHE_KEY, JSON.stringify(payload))
+  safeSetItem(HOME_PRICES_CACHE_KEY, JSON.stringify(payload))
 }
 
 function saveDailyCloseHistoryToCache(data: DailyCloseHistoryItem[]) {
@@ -57,7 +113,7 @@ function saveDailyCloseHistoryToCache(data: DailyCloseHistoryItem[]) {
     cachedAt: new Date().toISOString(),
   }
 
-  localStorage.setItem(DAILY_CLOSE_HISTORY_CACHE_KEY, JSON.stringify(payload))
+  safeSetItem(DAILY_CLOSE_HISTORY_CACHE_KEY, JSON.stringify(payload))
 }
 
 export function getCachedHomePrices(): CachedHomePrices | null {
@@ -84,7 +140,26 @@ export function getCachedDailyCloseHistory(): CachedDailyCloseHistory | null {
   }
 }
 
-export async function getHomePrices() {
+/** Lo último conocido de /prices/home/, sin tocar la red. */
+export function peekHomePrices(): { data: PricesHomeData; cachedAt: string | null } | null {
+  const fresh = recall<PricesHomeData>("home")
+
+  if (fresh) return { data: fresh, cachedAt: null }
+
+  const stored = getCachedHomePrices()
+
+  return stored ? { data: stored.data, cachedAt: stored.cachedAt } : null
+}
+
+export async function getHomePrices({ maxAgeMs = HOME_FRESH_MS }: { maxAgeMs?: number } = {}) {
+  const fresh = recall<PricesHomeData>("home", maxAgeMs)
+
+  if (fresh) return { data: fresh, fromCache: false, cachedAt: null }
+
+  return dedupe("home", fetchHomePrices)
+}
+
+async function fetchHomePrices() {
   try {
     const response = await fetch(`${API_BASE}/prices/home/`)
 
@@ -99,6 +174,7 @@ export async function getHomePrices() {
     }
 
     saveHomePricesToCache(data.data)
+    remember("home", data.data)
 
     return {
       data: data.data,
@@ -136,6 +212,7 @@ export async function refreshHomePrices() {
   }
 
   saveHomePricesToCache(data.data)
+  remember("home", data.data)
 
   return {
     data: data.data,
@@ -144,7 +221,20 @@ export async function refreshHomePrices() {
   }
 }
 
-export async function getDailyCloseHistory() {
+/** Lo último conocido de los cierres diarios, sin tocar la red. */
+export function peekDailyCloseHistory(): DailyCloseHistoryItem[] | null {
+  return recall<DailyCloseHistoryItem[]>("dailyClose") ?? getCachedDailyCloseHistory()?.data ?? null
+}
+
+export async function getDailyCloseHistory({ maxAgeMs = DAILY_CLOSE_FRESH_MS }: { maxAgeMs?: number } = {}) {
+  const fresh = recall<DailyCloseHistoryItem[]>("dailyClose", maxAgeMs)
+
+  if (fresh) return { data: fresh, fromCache: false, cachedAt: null }
+
+  return dedupe("dailyClose", fetchDailyCloseHistory)
+}
+
+async function fetchDailyCloseHistory() {
   try {
     const response = await fetch(`${API_BASE}/prices/daily-close-history/`)
 
@@ -159,6 +249,7 @@ export async function getDailyCloseHistory() {
     }
 
     saveDailyCloseHistoryToCache(data.data)
+    remember("dailyClose", data.data)
 
     return {
       data: data.data,
@@ -201,7 +292,7 @@ function savePriceChartToCache(
     cachedAt: new Date().toISOString(),
   }
 
-  localStorage.setItem(priceChartCacheKey(range, source), JSON.stringify(payload))
+  safeSetItem(priceChartCacheKey(range, source), JSON.stringify(payload))
 }
 
 function getCachedPriceChart(
@@ -219,11 +310,20 @@ function getCachedPriceChart(
   }
 }
 
+/** Lo último conocido de una gráfica del Historial, sin tocar la red. */
+export function peekPriceChart(range: PriceChartRange, source: PriceSource): PriceHistoryChartResponse | null {
+  return recall<PriceHistoryChartResponse>(`chart:${range}:${source}`) ?? getCachedPriceChart(range, source)?.data ?? null
+}
+
 export async function getPriceHistoryChart(
   range: PriceChartRange,
   source: PriceSource = "average",
   options: { signal?: AbortSignal } = {},
 ) {
+  const fresh = recall<PriceHistoryChartResponse>(`chart:${range}:${source}`, PRICE_CHART_FRESH_MS)
+
+  if (fresh) return { data: fresh, fromCache: false, cachedAt: null }
+
   try {
     const response = await fetch(
       `${API_BASE}/prices/history-chart/?range=${range}&source=${source}`,
@@ -241,6 +341,7 @@ export async function getPriceHistoryChart(
     }
 
     savePriceChartToCache(range, source, data)
+    remember(`chart:${range}:${source}`, data)
 
     return {
       data,
@@ -588,10 +689,32 @@ export async function getP2PTimeframeCandles(
   return data
 }
 
+/**
+ * Lo último conocido del estado del mercado para un lado, sin tocar la
+ * red. La cabecera muestra la hora de captura, así que un dato guardado
+ * nunca se presenta como actual.
+ */
+export function peekP2PMarketStatus(side: P2PSide): P2PMarketStatusResponse | null {
+  const inMemory = recall<P2PMarketStatusResponse>(`status:${side}`)
+
+  if (inMemory) return inMemory
+
+  try {
+    const raw = localStorage.getItem(`${MARKET_STATUS_CACHE_KEY_PREFIX}${side}`)
+
+    return raw ? (JSON.parse(raw) as P2PMarketStatusResponse) : null
+  } catch {
+    return null
+  }
+}
+
 export async function getP2PMarketStatus(
-  options: { side?: P2PSide; signal?: AbortSignal } = {},
+  options: { side?: P2PSide; signal?: AbortSignal; maxAgeMs?: number } = {},
 ) {
   const side = options.side ?? "SELL"
+  const fresh = recall<P2PMarketStatusResponse>(`status:${side}`, options.maxAgeMs ?? MARKET_STATUS_FRESH_MS)
+
+  if (fresh) return fresh
 
   const response = await fetch(`${API_BASE}/p2p/market-status/?side=${side}`, {
     signal: options.signal,
@@ -606,6 +729,9 @@ export async function getP2PMarketStatus(
       response.status,
     )
   }
+
+  remember(`status:${side}`, data)
+  safeSetItem(`${MARKET_STATUS_CACHE_KEY_PREFIX}${side}`, JSON.stringify(data))
 
   return data as P2PMarketStatusResponse
 }

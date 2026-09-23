@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
+  Line,
   ResponsiveContainer,
   ComposedChart,
   Bar,
@@ -24,12 +24,30 @@ import type {
   P2PCandleInterval,
   P2PHistoryRange,
   P2PHistorySummary,
+  P2PMarketStatusResponse,
+  P2PSideSelection,
   P2PViewMode,
 } from "../types/prices"
-import { formatBs, formatPercent } from "../utils/format"
+import { ChartCandlestick, ChartLine, Clock } from "lucide-react"
+
+import { formatBs } from "../utils/format"
 import { getStoredViewMode, setStoredViewMode } from "../utils/viewMode"
+import { getStoredP2PSide, setStoredP2PSide } from "../utils/p2pPreferences"
+import MarketPriceHeader from "../components/p2pMarket/MarketPriceHeader"
+import MarketStatsDisclosure from "../components/p2pMarket/MarketStatsGrid"
 import ViewModeToggle from "../components/p2pMarket/ViewModeToggle"
-import { ChevronLeftIcon } from "../components/priceHistory/icons"
+import MarketAiSheets from "../components/p2pMarket/MarketAiSheets"
+import { useP2PAiAnalysis } from "../components/p2pMarket/useP2PAiAnalysis"
+import { useP2PMarketStatus } from "../components/p2pMarket/useP2PMarketStatus"
+import { COLORS, PRICE, priceChangeColor } from "../components/priceHistory/theme"
+import { useCrossfade } from "../motion/useCrossfade"
+import { useEnterOnChange } from "../motion/useEnterOnChange"
+import { AnalyzeCta, ChartCard } from "../components/ui/ChartCard"
+import { ChipScroller, Disclosure, IconButton, MetricCell, MetricGrid, Notice } from "../components/ui/primitives"
+import { formatSignedPercent, toneOf } from "../components/ui/tone"
+import AppShell from "../components/shell/AppShell"
+import AppHeader from "../components/shell/AppHeader"
+import { VcIcon } from "../components/ui/VcIcon"
 import UsdtAnalyzerPro from "./usdtAnalyzerPro"
 
 const RANGE_OPTIONS: { key: P2PHistoryRange; label: string }[] = [
@@ -40,8 +58,13 @@ const RANGE_OPTIONS: { key: P2PHistoryRange; label: string }[] = [
   { key: "all", label: "Todo" },
 ]
 
-const UP_COLOR = "#22c55e"
-const DOWN_COLOR = "#ef4444"
+// Convención estándar: vela que sube verde, que baja roja (ver PRICE).
+const UP_COLOR = PRICE.rise
+const DOWN_COLOR = PRICE.fall
+
+/** Serie clásica de la vista Simple: SELL al notional de referencia. */
+const SIMPLE_SIDE = "SELL"
+const SIMPLE_NOTIONAL = 500
 
 type ChartPoint = P2PCandle & {
   label: string
@@ -78,6 +101,11 @@ function formatAxisLabel(candle: P2PCandle, interval: P2PCandleInterval, range: 
   if (interval === "day") return format(date, "dd/MM")
   if (range === "24h") return format(date, "HH:mm")
   return format(date, "dd/MM HH:mm")
+}
+
+/** Eje Y: precio entero con separador de miles venezolano ("1.002"). */
+function formatAxisPrice(value: number) {
+  return new Intl.NumberFormat("es-VE", { maximumFractionDigits: 0 }).format(value)
 }
 
 function formatTooltipDate(iso: string, interval: P2PCandleInterval) {
@@ -134,15 +162,15 @@ function CustomCandleTooltip({
   const isUp = point.close >= point.open
 
   return (
-    <div className="rounded-xl border border-[#2a2f38] bg-[#171a21] px-3 py-2 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.4)]">
-      <p className="text-[#8b92a0]">{formatTooltipDate(point.at, interval)}</p>
+    <div className="rounded-xl border border-hair bg-surface px-3 py-2 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.4)]">
+      <p className="text-ink-muted">{formatTooltipDate(point.at, interval)}</p>
       <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5">
-        <p className="text-[#7f8694]">Apertura <span className="font-semibold text-[#d7dbe3]">Bs {formatBs(point.open)}</span></p>
-        <p className="text-[#7f8694]">Cierre <span className={`font-semibold ${isUp ? "text-lime-400" : "text-red-400"}`}>Bs {formatBs(point.close)}</span></p>
-        <p className="text-[#7f8694]">Máximo <span className="font-semibold text-lime-400">Bs {formatBs(point.high)}</span></p>
-        <p className="text-[#7f8694]">Mínimo <span className="font-semibold text-red-400">Bs {formatBs(point.low)}</span></p>
+        <p className="text-ink-faint">Apertura <span className="font-semibold text-ink-soft">Bs {formatBs(point.open)}</span></p>
+        <p className="text-ink-faint">Cierre <span className={`font-semibold ${isUp ? "text-rise" : "text-fall"}`}>Bs {formatBs(point.close)}</span></p>
+        <p className="text-ink-faint">Máximo <span className="font-semibold text-rise">Bs {formatBs(point.high)}</span></p>
+        <p className="text-ink-faint">Mínimo <span className="font-semibold text-fall">Bs {formatBs(point.low)}</span></p>
       </div>
-      <p className="mt-1 text-[10px] text-[#7f8694]">{point.samples} muestras</p>
+      <p className="mt-1 text-[10px] text-ink-faint">{point.samples} muestras</p>
     </div>
   )
 }
@@ -160,67 +188,108 @@ function CustomHourTooltip({
 
   if (point.samples === 0) {
     return (
-      <div className="rounded-xl border border-[#2a2f38] bg-[#171a21] px-3 py-2 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.4)]">
-        <p className="text-[#8b92a0]">{point.label} VE</p>
-        <p className="mt-1 text-[#7f8694]">Sin datos en este rango</p>
+      <div className="rounded-xl border border-hair bg-surface px-3 py-2 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.4)]">
+        <p className="text-ink-muted">{point.label} VE</p>
+        <p className="mt-1 text-ink-faint">Sin datos en este rango</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded-xl border border-[#2a2f38] bg-[#171a21] px-3 py-2 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.4)]">
-      <p className="text-[#8b92a0]">{point.label} VE</p>
-      <p className="mt-1 font-semibold text-lime-400">
+    <div className="rounded-xl border border-hair bg-surface px-3 py-2 text-xs shadow-[0_12px_30px_rgba(0,0,0,0.4)]">
+      <p className="text-ink-muted">{point.label} VE</p>
+      <p className="mt-1 font-semibold text-up">
         Mediana: Bs {formatBs(point.medianPrice)}
       </p>
-      <p className="mt-0.5 text-[#7f8694]">
+      <p className="mt-0.5 text-ink-faint">
         {point.samples} {point.samples === 1 ? "muestra" : "muestras"}
       </p>
     </div>
   )
 }
 
+/**
+ * Mercado USDT/VES.
+ *
+ * La página es dueña de lo que comparten las dos vistas (cabecera,
+ * precio, selector Simple/Profesional y el snapshot del mercado), así que
+ * cambiar de vista ya no desmonta la pantalla entera: solo cambia el
+ * cuerpo, que entra en cascada. Jerarquía: precio → vista → controles →
+ * GRÁFICO → métricas y el resto.
+ */
 export default function UsdtAnalyzerPage() {
-  const navigate = useNavigate()
-
   const [viewMode, setViewMode] = useState<P2PViewMode>(() => getStoredViewMode())
+  // Lado de la Vista Profesional; la Simple es siempre SELL.
+  const [proSide, setProSide] = useState<P2PSideSelection>(() => getStoredP2PSide())
+
+  const side: P2PSideSelection = viewMode === "pro" ? proSide : SIMPLE_SIDE
+  const { snapshot, loading, error } = useP2PMarketStatus(side)
+
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+
+  useEnterOnChange(bodyRef, viewMode)
 
   function handleViewModeChange(mode: P2PViewMode) {
     setViewMode(mode)
     setStoredViewMode(mode)
   }
 
-  if (viewMode === "pro") {
-    return (
-      <UsdtAnalyzerPro
-        viewMode={viewMode}
-        onViewModeChange={handleViewModeChange}
-        onBack={() => navigate("/")}
-      />
-    )
+  function handleSideChange(next: P2PSideSelection) {
+    setProSide(next)
+    setStoredP2PSide(next)
   }
 
   return (
-    <UsdtAnalyzerSimple viewMode={viewMode} onViewModeChange={handleViewModeChange} />
+    <AppShell width={viewMode === "pro" ? "wide" : "app"}>
+      <AppHeader
+        variant="tab"
+        icon={<VcIcon name="market-candles" className="h-[18px] w-[18px]" />}
+        accent="#1FBF9F"
+        title="USDT / VES"
+        subtitle="Mercado P2P · Binance"
+        // Simple/Pro vive en la cabecera: ahorra una fila entera sobre el
+        // gráfico sin quitar ninguna de las dos vistas.
+        actions={<ViewModeToggle compact value={viewMode} onChange={handleViewModeChange} className="w-[136px]" />}
+      />
+
+      <div className="space-y-3">
+        <div data-enter>
+          <MarketPriceHeader snapshot={snapshot} loading={loading} side={side === "BOTH" ? "SELL" : side} />
+        </div>
+
+        <div ref={bodyRef}>
+          {viewMode === "pro" ? (
+            <UsdtAnalyzerPro
+              snapshot={snapshot}
+              snapshotLoading={loading}
+              snapshotError={error}
+              side={proSide}
+              onSideChange={handleSideChange}
+            />
+          ) : (
+            <UsdtAnalyzerSimple snapshot={snapshot} />
+          )}
+        </div>
+      </div>
+    </AppShell>
   )
 }
 
-function UsdtAnalyzerSimple({
-  viewMode,
-  onViewModeChange,
-}: {
-  viewMode: P2PViewMode
-  onViewModeChange: (mode: P2PViewMode) => void
-}) {
-  const navigate = useNavigate()
-
+function UsdtAnalyzerSimple({ snapshot }: { snapshot: P2PMarketStatusResponse | null }) {
   const [range, setRange] = useState<P2PHistoryRange>("7d")
+  const [chartMode, setChartMode] = useState<"candles" | "line">("candles")
   const [candles, setCandles] = useState<P2PCandle[]>([])
   const [bestHours, setBestHours] = useState<BestHoursResponse | null>(null)
   const [summary, setSummary] = useState<P2PHistorySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [usingCache, setUsingCache] = useState(false)
+
+  const ai = useP2PAiAnalysis(SIMPLE_SIDE, SIMPLE_NOTIONAL)
+  const chartRef = useRef<HTMLDivElement | null>(null)
+
+  // Otro rango: transición breve del gráfico, no de toda la pantalla.
+  useCrossfade(chartRef, range)
 
   const chartInterval = chartIntervalForRange(range)
 
@@ -309,229 +378,206 @@ function UsdtAnalyzerSimple({
     [rankedHours],
   )
 
-  const changeIsPositive = (summary?.change ?? 0) >= 0
   const hasEnoughHourData = rankedHours.length >= 2
 
+  const changePercent = summary?.change_percent ?? null
+
   return (
-    <main className="min-h-dvh bg-[linear-gradient(180deg,#111218_0%,#15171d_100%)] text-[#e7e9ee]">
-      <div className="mx-auto w-full max-w-sm px-4 py-6">
-        <header className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#2a2f38] bg-[#171a21]/90 text-[#d7dbe3] transition hover:border-white/20 hover:bg-[#20252e] hover:text-white active:scale-95"
-            aria-label="Volver"
-          >
-            <ChevronLeftIcon className="h-5 w-5" />
-          </button>
-
-          <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-bold text-[#e7e9ee]">Análisis USDT P2P</h1>
-            <p className="truncate text-xs text-[#7f8694]">
-              Fluctuación de venta en Binance y mejor hora para vender
-            </p>
-          </div>
-        </header>
-
-        <div className="mt-4">
-          <ViewModeToggle value={viewMode} onChange={onViewModeChange} className="w-full" />
-        </div>
-
-        <div className="mt-6 flex gap-1.5 overflow-x-auto rounded-2xl border border-[#27313d] bg-[#151b23] p-1">
-          {RANGE_OPTIONS.map((option) => (
-            <button
-              key={option.key}
-              type="button"
-              onClick={() => setRange(option.key)}
-              className={`flex-1 shrink-0 rounded-xl px-2 py-2 text-xs font-semibold transition sm:text-sm ${
-                range === option.key
-                  ? "bg-[#e7e9ee] text-[#0f1116]"
-                  : "text-[#8b92a0] hover:text-white"
-              }`}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-
-        {usingCache && (
-          <div className="mt-4 break-words rounded-2xl border border-[#3a3340] bg-[#1a1820] px-4 py-3 text-xs text-[#c9b7d9]">
-            Mostrando datos guardados
-          </div>
-        )}
-
-        {error && <p className="mt-3 break-words text-xs text-red-400">{error}</p>}
-
-        {summary && (
-          <div className="mt-4 rounded-2xl border border-[#27313d] bg-gradient-to-br from-[#161c24] to-[#10161d] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
-            <div className="flex items-baseline justify-between gap-2">
-              <p className="text-2xl font-bold text-[#e7e9ee]">Bs {formatBs(summary.close)}</p>
-
-              {summary.change_percent !== null && (
-                <span
-                  className={`shrink-0 text-sm font-semibold ${
-                    changeIsPositive ? "text-lime-400" : "text-red-400"
-                  }`}
-                >
-                  {formatPercent(summary.change_percent)}
-                </span>
-              )}
+    <>
+      <div className="space-y-3">
+        <div data-enter>
+          <ChartCard>
+            <div className="flex items-center gap-2">
+              <ChipScroller options={RANGE_OPTIONS} value={range} onChange={setRange} label="Rango" className="min-w-0 flex-1" />
+              <IconButton
+                label={chartMode === "candles" ? "Cambiar a línea" : "Cambiar a velas"}
+                onClick={() => setChartMode((mode) => (mode === "candles" ? "line" : "candles"))}
+              >
+                {chartMode === "candles" ? (
+                  <ChartCandlestick className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+                ) : (
+                  <ChartLine className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+                )}
+              </IconButton>
             </div>
 
-            <p className="mt-1 text-xs text-[#7f8694]">
-              {summary.samples} {summary.samples === 1 ? "muestra" : "muestras"} en este rango
-            </p>
-
-            <div className="mt-4 grid grid-cols-2 gap-3 text-xs">
-              <div>
-                <p className="text-[#7f8694]">
-                  {range === "all" ? "Máximo histórico" : "Precio más alto"}
-                </p>
-                <p className="mt-0.5 font-semibold text-lime-400">
-                  Bs {formatBs(summary.highest_price)}
-                </p>
-                <p className="mt-0.5 text-[10px] text-[#7f8694]">
-                  {format(new Date(summary.highest_price_at), "dd/MM/yyyy HH:mm")}
-                </p>
-              </div>
-              <div>
-                <p className="text-[#7f8694]">
-                  {range === "all" ? "Mínimo histórico" : "Precio más bajo"}
-                </p>
-                <p className="mt-0.5 font-semibold text-red-400">
-                  Bs {formatBs(summary.lowest_price)}
-                </p>
-                <p className="mt-0.5 text-[10px] text-[#7f8694]">
-                  {format(new Date(summary.lowest_price_at), "dd/MM/yyyy HH:mm")}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-4 rounded-2xl border border-[#27313d] bg-[#10161d] p-3">
-          <div className="flex items-center justify-between px-1 pb-2">
-            <p className="text-xs font-semibold text-[#d7dbe3]">Velas de precio (SELL)</p>
-            <span className="text-[10px] uppercase tracking-wide text-[#7f8694]">
-              {chartInterval === "day" ? "1 vela = 1 día" : "1 vela = 1 hora"}
-            </span>
-          </div>
-
-          {loading ? (
-            <div className="flex h-56 items-center justify-center">
-              <p className="text-sm text-[#8b92a0]">Cargando gráfica...</p>
-            </div>
-          ) : chartData.length === 0 ? (
-            <div className="flex h-56 flex-col items-center justify-center gap-2 px-4 text-center">
-              <p className="text-sm font-medium text-[#d7dbe3]">Aún no hay datos suficientes</p>
-              <p className="text-xs text-[#7f8694]">
-                Todavía no se registraron capturas del mercado P2P en este rango.
-              </p>
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height={260}>
-              <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barCategoryGap="20%">
-                <CartesianGrid stroke="#1f2530" strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fill: "#7f8694", fontSize: 10 }}
-                  axisLine={{ stroke: "#27313d" }}
-                  tickLine={false}
-                  minTickGap={24}
-                />
-                <YAxis
-                  tick={{ fill: "#7f8694", fontSize: 10 }}
-                  axisLine={false}
-                  tickLine={false}
-                  domain={["dataMin - 0.5", "dataMax + 0.5"]}
-                  width={48}
-                />
-                <Tooltip
-                  content={<CustomCandleTooltip interval={chartInterval} />}
-                  cursor={{ fill: "#1f2530" }}
-                />
-                <Bar dataKey="range" shape={<CandleShape />} isAnimationActive={false} maxBarSize={22} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-[#27313d] bg-[#10161d] p-3">
-          <p className="px-1 text-xs font-semibold text-[#d7dbe3]">
-            Mejor hora observada hoy para vender
-          </p>
-          <p className="px-1 pb-2 text-[11px] text-[#7f8694]">
-            Mediana por franja horaria (hora de Venezuela)
-          </p>
-
-          {loading ? (
-            <div className="flex h-40 items-center justify-center">
-              <p className="text-sm text-[#8b92a0]">Calculando...</p>
-            </div>
-          ) : !hasEnoughHourData ? (
-            <div className="flex h-40 flex-col items-center justify-center gap-2 px-4 text-center">
-              <p className="text-sm font-medium text-[#d7dbe3]">Aún no hay patrón suficiente</p>
-              <p className="text-xs text-[#7f8694]">
-                Prueba con un rango más amplio (semana o mes) para detectar la mejor hora.
-              </p>
-            </div>
-          ) : (
-            <>
-              <ResponsiveContainer width="100%" height={180}>
-                <BarChart data={hourStats} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
-                  <CartesianGrid stroke="#1f2530" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fill: "#7f8694", fontSize: 9 }}
-                    axisLine={{ stroke: "#27313d" }}
-                    tickLine={false}
-                    interval={3}
-                  />
-                  <YAxis
-                    tick={{ fill: "#7f8694", fontSize: 10 }}
-                    axisLine={false}
-                    tickLine={false}
-                    domain={["dataMin - 0.5", "dataMax + 0.5"]}
-                    width={48}
-                  />
-                  <Tooltip content={<CustomHourTooltip />} cursor={{ fill: "#1f2530" }} />
-                  <Bar dataKey="medianPrice" radius={[4, 4, 0, 0]} isAnimationActive={false}>
-                    {hourStats.map((stat) => (
-                      <Cell
-                        key={stat.hour}
-                        fill={
-                          stat.samples === 0
-                            ? "#1c2129"
-                            : topHourKeys.has(stat.hour)
-                              ? "#a3e635"
-                              : "#3a4655"
-                        }
-                      />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-
-              {bestHour && (
-                <div className="mt-3 rounded-xl border border-[#3a4a2e] bg-[#1a2417] px-3 py-2.5">
-                  {/* Observación, no recomendación: describe lo que ya
-                      pasó hoy y nunca a qué hora conviene operar. */}
-                  <p className="text-xs text-[#8fd147]">
-                    Hasta ahora, la franja con el precio de venta más alto
-                    observada hoy fue entre las{" "}
-                    <span className="font-semibold">
-                      {bestHour.label} y {bestHour.hourEnd}
-                    </span>{" "}
-                    hora de Venezuela, con una mediana de{" "}
-                    <span className="font-semibold">Bs {formatBs(bestHour.medianPrice)}</span>{" "}
-                    ({bestHour.samples} {bestHour.samples === 1 ? "lectura" : "lecturas"}).
+            <div ref={chartRef} className="mt-2">
+              {loading ? (
+                <div className="flex h-60 items-center justify-center">
+                  <p className="text-sm text-ink-muted">Cargando gráfica…</p>
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="flex h-60 flex-col items-center justify-center gap-2 px-4 text-center">
+                  <p className="text-sm font-semibold text-ink-soft">Aún no hay datos suficientes</p>
+                  <p className="text-[12px] text-ink-muted">
+                    Todavía no se registraron capturas del mercado P2P en este rango.
                   </p>
                 </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={240}>
+                  <ComposedChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }} barCategoryGap="20%">
+                    <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fill: COLORS.textMuted, fontSize: 11 }}
+                      axisLine={{ stroke: COLORS.border }}
+                      tickLine={false}
+                      minTickGap={24}
+                    />
+                    <YAxis
+                      tick={{ fill: COLORS.textMuted, fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      domain={["dataMin - 0.5", "dataMax + 0.5"]}
+                      tickFormatter={formatAxisPrice}
+                      width={52}
+                    />
+                    <Tooltip
+                      content={<CustomCandleTooltip interval={chartInterval} />}
+                      cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                    />
+                    {chartMode === "candles" ? (
+                      <Bar dataKey="range" shape={<CandleShape />} isAnimationActive={false} maxBarSize={22} />
+                    ) : (
+                      <Line
+                        type="monotone"
+                        dataKey="close"
+                        stroke={priceChangeColor(changePercent, COLORS.textSoft)}
+                        strokeWidth={2}
+                        dot={false}
+                        isAnimationActive={false}
+                      />
+                    )}
+                  </ComposedChart>
+                </ResponsiveContainer>
               )}
-            </>
-          )}
+            </div>
+
+            <p className="mt-2 px-1 text-[11px] text-ink-faint">
+              USDT/VES · SELL a 500 USDT ·{" "}
+              {chartMode === "candles"
+                ? chartInterval === "day"
+                  ? "1 vela = 1 día"
+                  : "1 vela = 1 hora"
+                : `cierre por ${chartInterval === "day" ? "día" : "hora"}`}
+            </p>
+
+            {summary && (
+              <MetricGrid columns={3} className="mt-2">
+                <MetricCell
+                  label="Cambio"
+                  value={changePercent === null ? "—" : formatSignedPercent(changePercent)}
+                  tone={toneOf(changePercent)}
+                />
+                <MetricCell
+                  label={range === "all" ? "Máx hist." : "Máximo"}
+                  value={formatBs(summary.highest_price)}
+                  tone="up"
+                />
+                <MetricCell
+                  label={range === "all" ? "Mín hist." : "Mínimo"}
+                  value={formatBs(summary.lowest_price)}
+                  tone="down"
+                />
+              </MetricGrid>
+            )}
+          </ChartCard>
+        </div>
+
+        {usingCache && <Notice>Mostrando datos guardados</Notice>}
+        {error && <p className="break-words px-1 text-[12px] text-down">{error}</p>}
+
+        <div data-enter>
+          <MarketStatsDisclosure snapshot={snapshot} />
+        </div>
+
+        {ai.aiAvailable && (
+          <div data-enter>
+            <AnalyzeCta subtitle="Interpretación del estado actual del mercado" onClick={ai.openDrawer} />
+          </div>
+        )}
+
+        <div data-enter>
+          <Disclosure
+            title="Mejor hora observada hoy"
+            subtitle={
+              bestHour
+                ? `${bestHour.label}–${bestHour.hourEnd} · Bs ${formatBs(bestHour.medianPrice)}`
+                : "Mediana por franja horaria (hora de Venezuela)"
+            }
+            icon={<Clock className="h-[18px] w-[18px] shrink-0 text-up" aria-hidden />}
+          >
+            {loading ? (
+              <div className="flex h-40 items-center justify-center">
+                <p className="text-sm text-ink-muted">Calculando...</p>
+              </div>
+            ) : !hasEnoughHourData ? (
+              <div className="flex h-40 flex-col items-center justify-center gap-2 px-4 text-center">
+                <p className="text-sm font-medium text-ink-soft">Aún no hay patrón suficiente</p>
+                <p className="text-xs text-ink-muted">
+                  Prueba con un rango más amplio (semana o mes) para detectar la mejor hora.
+                </p>
+              </div>
+            ) : (
+              <>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={hourStats} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid stroke={COLORS.grid} strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fill: COLORS.textMuted, fontSize: 11 }}
+                      axisLine={{ stroke: COLORS.border }}
+                      tickLine={false}
+                      interval={3}
+                    />
+                    <YAxis
+                      tick={{ fill: COLORS.textMuted, fontSize: 11 }}
+                      axisLine={false}
+                      tickLine={false}
+                      domain={["dataMin - 0.5", "dataMax + 0.5"]}
+                      tickFormatter={formatAxisPrice}
+                      width={52}
+                    />
+                    <Tooltip content={<CustomHourTooltip />} cursor={{ fill: "rgba(255,255,255,0.04)" }} />
+                    <Bar dataKey="medianPrice" radius={[4, 4, 0, 0]} isAnimationActive={false}>
+                      {hourStats.map((stat) => (
+                        <Cell
+                          key={stat.hour}
+                          fill={
+                            stat.samples === 0
+                              ? COLORS.surfaceSoft
+                              : topHourKeys.has(stat.hour)
+                                ? COLORS.up
+                                : "#2B3A52"
+                          }
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+
+                {bestHour && (
+                  <div className="mt-3 rounded-tile border border-up/25 bg-up/10 px-3.5 py-3">
+                    {/* Observación, no recomendación: describe lo que ya
+                        pasó hoy y nunca a qué hora conviene operar. */}
+                    <p className="text-[12px] leading-relaxed text-up">
+                      Hasta ahora, la franja con el precio de venta más alto observada hoy fue entre las{" "}
+                      <span className="font-semibold">
+                        {bestHour.label} y {bestHour.hourEnd}
+                      </span>{" "}
+                      hora de Venezuela, con una mediana de{" "}
+                      <span className="font-semibold">Bs {formatBs(bestHour.medianPrice)}</span> ({bestHour.samples}{" "}
+                      {bestHour.samples === 1 ? "lectura" : "lecturas"}).
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
+          </Disclosure>
         </div>
       </div>
-    </main>
+
+      <MarketAiSheets ai={ai} />
+    </>
   )
 }

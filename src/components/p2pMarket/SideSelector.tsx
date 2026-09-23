@@ -22,7 +22,7 @@ type Props = {
 export default function SideSelector({ value, onChange, className }: Props) {
   return (
     <div className={className ?? "w-[168px]"}>
-      <SegmentedControl options={OPTIONS} value={value} onChange={onChange} label="Lado" size="sm" />
+      <SegmentedControl options={OPTIONS} value={value} onChange={onChange} label="Lado" size="xs" />
     </div>
   )
 }

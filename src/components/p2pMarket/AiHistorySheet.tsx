@@ -21,6 +21,8 @@ import { TREND_LABELS, trendColor } from "./theme"
 type Props = {
   open: boolean
   onClose: () => void
+  /** Abre directamente este análisis guardado (p. ej. desde Inicio). */
+  initialDetailId?: number | null
 }
 
 const PAGE_SIZE = 20
@@ -52,7 +54,7 @@ function dayOf(iso: string) {
 function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`rounded-md bg-white/[0.06] motion-safe:animate-pulse-soft ${className}`}
+      className={`rounded-md bg-surface-raised motion-safe:animate-pulse-soft ${className}`}
       aria-hidden
     />
   )
@@ -79,7 +81,7 @@ function DayTimeline({ items }: { items: AiAnalysisListItem[] }) {
               className="h-1.5 w-1.5 rounded-full"
               style={{ backgroundColor: trendColor(item.market_state) }}
             />
-            <span className="text-[10px] tabular-nums text-[#4d5665]">
+            <span className="text-[10px] tabular-nums text-ink-faint">
               {timeOf(item.generated_at)}
             </span>
           </span>
@@ -96,7 +98,7 @@ function DayTimeline({ items }: { items: AiAnalysisListItem[] }) {
  * ejecutar el modelo. Revisar lo que ya se escribió no puede costar una
  * inferencia.
  */
-export default function AiHistorySheet({ open, onClose }: Props) {
+export default function AiHistorySheet({ open, onClose, initialDetailId = null }: Props) {
   const [items, setItems] = useState<AiAnalysisListItem[]>([])
   const [page, setPage] = useState(1)
   const [hasNext, setHasNext] = useState(false)
@@ -163,6 +165,10 @@ export default function AiHistorySheet({ open, onClose }: Props) {
     }
   }, [])
 
+  useEffect(() => {
+    if (open && initialDetailId != null) openDetail(initialDetailId)
+  }, [open, initialDetailId, openDetail])
+
   const todayKey = items[0] ? dayOf(items[0].generated_at) : null
   const sameDay = items.filter(
     (item) => todayKey && dayOf(item.generated_at) === todayKey,
@@ -173,7 +179,7 @@ export default function AiHistorySheet({ open, onClose }: Props) {
       open={open}
       onClose={onClose}
       ariaLabel="Historial de análisis"
-      icon={<HistoryIcon className="h-4 w-4 shrink-0 text-[#a78bfa]" />}
+      icon={<HistoryIcon className="h-4 w-4 shrink-0 text-brand-light" />}
       title={selected ? "Análisis guardado" : "Historial IA"}
       subtitle={
         selected
@@ -186,7 +192,7 @@ export default function AiHistorySheet({ open, onClose }: Props) {
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white/[0.06] px-3.5 text-xs font-semibold text-[#d7dbe3] outline-none transition hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white/30 active:scale-[0.97]"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-surface-raised px-3.5 text-xs font-semibold text-ink-soft outline-none transition hover:bg-surface-raised focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97]"
             >
               <ChevronLeftIcon className="h-4 w-4" />
               Volver al historial
@@ -199,7 +205,7 @@ export default function AiHistorySheet({ open, onClose }: Props) {
               type="button"
               onClick={() => setPage((value) => Math.max(1, value - 1))}
               disabled={page === 1 || loading}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white/[0.06] px-3.5 text-xs font-semibold text-[#d7dbe3] outline-none transition hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white/30 active:scale-[0.97] disabled:opacity-40"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-surface-raised px-3.5 text-xs font-semibold text-ink-soft outline-none transition hover:bg-surface-raised focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97] disabled:opacity-40"
             >
               <ChevronLeftIcon className="h-4 w-4" />
               Anterior
@@ -209,7 +215,7 @@ export default function AiHistorySheet({ open, onClose }: Props) {
               type="button"
               onClick={() => setPage((value) => value + 1)}
               disabled={!hasNext || loading}
-              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-white/[0.06] px-3.5 text-xs font-semibold text-[#d7dbe3] outline-none transition hover:bg-white/[0.1] focus-visible:ring-2 focus-visible:ring-white/30 active:scale-[0.97] disabled:opacity-40"
+              className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-surface-raised px-3.5 text-xs font-semibold text-ink-soft outline-none transition hover:bg-surface-raised focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97] disabled:opacity-40"
             >
               Siguiente
               <ChevronRightIcon className="h-4 w-4" />
@@ -220,7 +226,7 @@ export default function AiHistorySheet({ open, onClose }: Props) {
     >
       {selected ? (
         <div className="motion-safe:animate-fade-in-fast">
-          <h3 className="text-base font-bold leading-snug text-[#e9ebf0]">
+          <h3 className="text-base font-bold leading-snug text-ink">
             {selected.analysis.headline}
           </h3>
 
@@ -230,19 +236,19 @@ export default function AiHistorySheet({ open, onClose }: Props) {
             .map((paragraph, index) => (
               <p
                 key={index}
-                className="mt-3 text-sm leading-relaxed text-[#a8b0be]"
+                className="mt-3 text-sm leading-relaxed text-ink-soft"
               >
                 {paragraph}
               </p>
             ))}
 
           {selected.snapshot && (
-            <p className="mt-4 text-[11px] tabular-nums text-[#4d5665]">
+            <p className="mt-4 text-[11px] tabular-nums text-ink-faint">
               Precio de referencia: Bs {formatBs(selected.snapshot.current_price)}
             </p>
           )}
 
-          <p className="mt-3 text-[11px] leading-relaxed text-[#4d5665]">
+          <p className="mt-3 text-[11px] leading-relaxed text-ink-faint">
             Análisis guardado. No se volvió a generar al abrirlo.
           </p>
         </div>
@@ -253,9 +259,9 @@ export default function AiHistorySheet({ open, onClose }: Props) {
           ))}
         </div>
       ) : error ? (
-        <p className="text-sm text-[#c9cfda]">{error}</p>
+        <p className="text-sm text-ink-soft">{error}</p>
       ) : items.length === 0 ? (
-        <p className="text-sm leading-relaxed text-[#a8b0be]">
+        <p className="text-sm leading-relaxed text-ink-soft">
           Todavía no hay análisis guardados. El primero aparecerá aquí en
           cuanto generes uno.
         </p>
@@ -269,10 +275,10 @@ export default function AiHistorySheet({ open, onClose }: Props) {
                 <button
                   type="button"
                   onClick={() => openDetail(item.id)}
-                  className="w-full rounded-xl bg-white/[0.03] px-3 py-2.5 text-left outline-none transition hover:bg-white/[0.06] focus-visible:ring-2 focus-visible:ring-[#a78bfa]/50 active:scale-[0.995]"
+                  className="w-full rounded-xl bg-surface-raised px-3 py-2.5 text-left outline-none transition hover:bg-surface-raised focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.995]"
                 >
                   <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-[11px] tabular-nums text-[#646d7d]">
+                    <span className="text-[11px] tabular-nums text-ink-faint">
                       {dayOf(item.generated_at)} · {timeOf(item.generated_at)}
                     </span>
 
@@ -284,18 +290,18 @@ export default function AiHistorySheet({ open, onClose }: Props) {
                     </span>
                   </div>
 
-                  <p className="mt-1 line-clamp-2 text-sm leading-snug text-[#d7dbe3]">
+                  <p className="mt-1 line-clamp-2 text-sm leading-snug text-ink-soft">
                     {item.headline}
                   </p>
 
                   <div className="mt-1 flex items-center justify-between gap-3">
-                    <span className="text-[11px] tabular-nums text-[#4d5665]">
+                    <span className="text-[11px] tabular-nums text-ink-faint">
                       {item.current_price != null
                         ? `Bs ${formatBs(item.current_price)}`
                         : "—"}
                     </span>
 
-                    <span className="text-[11px] text-[#4d5665]">
+                    <span className="text-[11px] text-ink-faint">
                       {item.side} · {item.range} ·{" "}
                       {TRIGGER_LABELS[item.trigger] ?? item.trigger}
                     </span>

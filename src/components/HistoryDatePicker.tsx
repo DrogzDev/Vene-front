@@ -3,12 +3,15 @@ import { DayPicker } from "react-day-picker"
 import { addMonths, format, subMonths } from "date-fns"
 import { es } from "date-fns/locale"
 import "react-day-picker/dist/style.css"
+import { CalendarDays } from "lucide-react"
 
 type HistoryDatePickerProps = {
   selectedDate: Date | null
   onConfirm: (date: Date | null) => void
   availableDates?: string[]
   loading?: boolean
+  /** "icon": botón de calendario compacto (cabecera de sección en Inicio). */
+  variant?: "pill" | "icon"
 }
 
 function toDateKey(date: Date) {
@@ -30,6 +33,7 @@ export default function HistoryDatePicker({
   onConfirm,
   availableDates = [],
   loading = false,
+  variant = "pill",
 }: HistoryDatePickerProps) {
   const [open, setOpen] = useState(false)
   const [visible, setVisible] = useState(false)
@@ -87,11 +91,25 @@ export default function HistoryDatePicker({
 
   return (
     <>
+      {variant === "icon" ? (
+        <button
+          type="button"
+          onClick={handleOpen}
+          disabled={loading}
+          aria-label={selectedDate ? `Fecha: ${formatSelectedLabel(selectedDate)}` : "Ver tasas de otra fecha"}
+          title="Ver tasas de otra fecha"
+          className={`flex h-11 w-11 items-center justify-center rounded-full outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-95 disabled:opacity-50 ${
+            selectedDate ? "bg-brand/15 text-brand-light" : "text-ink-muted hover:bg-surface hover:text-ink"
+          }`}
+        >
+          <CalendarDays className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+        </button>
+      ) : (
       <div className="mt-8 flex flex-col items-center gap-3">
         <button
           type="button"
           onClick={handleOpen}
-          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#2d3844] bg-[#151b23] px-4 py-2 text-xs font-medium text-[#aeb8c2] transition hover:border-[#415062] hover:bg-[#1a212b] hover:text-white"
+          className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-hair bg-surface px-4 py-2 text-xs font-medium text-ink-soft transition hover:border-hairbright hover:bg-surface-raised hover:text-ink"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -110,26 +128,30 @@ export default function HistoryDatePicker({
           <span>{formatSelectedLabel(selectedDate)}</span>
         </button>
 
-        {loading && <p className="text-xs text-[#8c98a5]">Buscando histórico...</p>}
+        {loading && <p className="text-xs text-ink-muted">Buscando histórico...</p>}
       </div>
+      )}
 
       {open && (
         <div
           className={`fixed inset-0 z-50 transition-all duration-300 ${
-            visible ? "bg-black/35 backdrop-blur-md" : "bg-black/0 backdrop-blur-0"
+            visible ? "bg-black/60" : "bg-black/0"
           }`}
           style={{ height: "100dvh" }}
           onClick={handleClose}
         >
-          <div className="absolute inset-x-0 bottom-0 flex justify-center px-3 pb-3 sm:pb-5">
+          <div
+            className="absolute inset-x-0 bottom-0 flex justify-center px-3 sm:pb-5"
+            style={{ paddingBottom: "calc(0.75rem + var(--sab))" }}
+          >
             <div
               onClick={(e) => e.stopPropagation()}
-              className={`w-full max-w-[430px] rounded-[32px] bg-[#f7f7f8] shadow-[0_-10px_40px_rgba(0,0,0,0.22)] transition-all duration-300 ${
+              className={`w-full max-w-[430px] rounded-card border border-hair bg-surface shadow-[0_-10px_40px_rgba(0,0,0,0.4)] transition-all duration-300 ${
                 visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
               }`}
             >
               <div className="flex justify-center pt-3">
-                <div className="h-1.5 w-12 rounded-full bg-[#d2d4d8]" />
+                <div className="h-1.5 w-12 rounded-full bg-white/15" />
               </div>
 
               <div className="px-5 pb-5 pt-3">
@@ -137,7 +159,7 @@ export default function HistoryDatePicker({
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="flex h-11 w-11 items-center justify-center rounded-full bg-black text-white transition hover:scale-105"
+                    className="flex h-11 w-11 items-center justify-center rounded-full bg-brand text-white transition hover:scale-105"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -157,7 +179,7 @@ export default function HistoryDatePicker({
                   <button
                     type="button"
                     onClick={() => setDisplayMonth((prev) => subMonths(prev, 1))}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e3e4e8] bg-white text-[#22242a] transition hover:bg-[#efeff2]"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-hair bg-surface-raised text-ink transition hover:bg-surface"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -172,7 +194,7 @@ export default function HistoryDatePicker({
                   </button>
 
                   <div className="min-w-0 flex-1 px-4 text-center">
-                    <p className="text-[20px] font-semibold capitalize tracking-[-0.02em] text-[#22242a]">
+                    <p className="text-[20px] font-semibold capitalize tracking-[-0.02em] text-ink">
                       {format(displayMonth, "MMMM 'de' yyyy", { locale: es })}
                     </p>
                   </div>
@@ -180,7 +202,7 @@ export default function HistoryDatePicker({
                   <button
                     type="button"
                     onClick={() => setDisplayMonth((prev) => addMonths(prev, 1))}
-                    className="flex h-11 w-11 items-center justify-center rounded-full border border-[#e3e4e8] bg-white text-[#22242a] transition hover:bg-[#efeff2]"
+                    className="flex h-11 w-11 items-center justify-center rounded-full border border-hair bg-surface-raised text-ink transition hover:bg-surface"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -195,7 +217,7 @@ export default function HistoryDatePicker({
                   </button>
                 </div>
 
-                <div className="rounded-[24px] bg-[#f7f7f8]">
+                <div className="rounded-card bg-surface">
                   <DayPicker
                     mode="single"
                     month={displayMonth}
@@ -221,7 +243,7 @@ export default function HistoryDatePicker({
                       nav: "hidden",
                       month_grid: "w-full border-collapse",
                       weekdays: "mb-3 grid grid-cols-7 gap-y-1",
-                      weekday: "text-center text-[13px] font-semibold uppercase text-[#8d9098]",
+                      weekday: "text-center text-[13px] font-semibold uppercase text-ink-faint",
                       weeks: "space-y-2",
                       week: "grid grid-cols-7 place-items-center",
                       day: "h-11 w-11",
@@ -239,16 +261,16 @@ export default function HistoryDatePicker({
                           "flex h-11 w-11 items-center justify-center rounded-full text-[17px] font-medium transition-colors duration-150"
 
                         if (isSelected) {
-                          buttonClass += " bg-black text-white hover:bg-black hover:text-white"
+                          buttonClass += " bg-brand text-white hover:bg-brand hover:text-white"
                         } else if (isDisabled) {
-                          buttonClass += " text-[#d4d7dd] cursor-not-allowed"
+                          buttonClass += " text-ink-faint/50 cursor-not-allowed"
                         } else if (isOutside) {
-                          buttonClass += " text-[#c9ccd3]"
+                          buttonClass += " text-ink-faint"
                         } else if (isToday) {
                           buttonClass +=
-                            " border border-[#d7d9de] bg-white text-[#2c2d33] hover:bg-[#eef0f3]"
+                            " border border-hair bg-surface-raised text-ink-soft hover:bg-surface"
                         } else {
-                          buttonClass += " text-[#2c2d33] hover:bg-black hover:text-white"
+                          buttonClass += " text-ink-soft hover:bg-brand hover:text-white"
                         }
 
                         return (
@@ -262,7 +284,7 @@ export default function HistoryDatePicker({
                 </div>
 
                 {!hasAvailableDates && (
-                  <p className="mt-3 text-center text-xs text-[#8b8d96]">
+                  <p className="mt-3 text-center text-xs text-ink-muted">
                     Aún no hay fechas históricas disponibles.
                   </p>
                 )}
@@ -271,7 +293,7 @@ export default function HistoryDatePicker({
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="rounded-full bg-[#ececf0] px-4 py-3.5 text-sm font-semibold text-[#3a3b42] transition hover:bg-[#e3e4e9]"
+                    className="min-h-12 rounded-full border border-hair bg-surface-raised px-4 text-sm font-semibold text-ink-soft transition hover:text-ink"
                   >
                     Cancelar
                   </button>
@@ -280,7 +302,7 @@ export default function HistoryDatePicker({
                     type="button"
                     onClick={handleConfirm}
                     disabled={!tempDate}
-                    className="rounded-full bg-[#16171b] px-4 py-3.5 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="min-h-12 rounded-full bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand-bright disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Seleccionar
                   </button>

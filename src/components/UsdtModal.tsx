@@ -1,5 +1,7 @@
 import { useEffect } from "react"
 
+import { formatBs } from "../utils/format"
+
 type UsdtOffer = {
   nickName: string
   price: number
@@ -44,23 +46,24 @@ export default function UsdtModal({
       style={{ height: '100dvh' }}
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-md" />
+      <div className="absolute inset-0 bg-black/60" />
 
       <div
-        className="relative w-full max-w-lg rounded-t-3xl border border-[#27313d] bg-gradient-to-br from-[#161c24] via-[#11161d] to-[#0c1117] p-5 text-slate-100 shadow-[0_25px_80px_rgba(0,0,0,0.45)] sm:rounded-3xl"
+        className="relative w-full max-w-lg rounded-t-3xl border border-hair bg-surface p-5 text-ink shadow-[0_-16px_50px_rgba(0,0,0,0.5)] sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
+        style={{ paddingBottom: "calc(1.25rem + var(--sab))" }}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[clamp(1rem,3dvw,1.125rem)] font-semibold text-slate-100">
+          <h3 className="text-[clamp(1rem,3dvw,1.125rem)] font-semibold text-ink">
             Ofertas USDT P2P
           </h3>
 
           <button
             onClick={onClose}
-            className="rounded-full border border-[#2a3440] bg-[#151b23] p-2 transition hover:bg-[#1b222c]"
+            className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-raised transition hover:bg-surface-soft"
           >
             <svg
-              className="h-5 w-5 text-slate-400"
+              className="h-5 w-5 text-ink-muted"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -75,10 +78,10 @@ export default function UsdtModal({
           </button>
         </div>
 
-        <p className="mb-4 text-sm text-slate-400">
+        <p className="mb-4 text-sm text-ink-muted">
           Mejor precio:{" "}
-          <span className="font-semibold text-slate-100">
-            Bs {bestPrice.toFixed(2)}
+          <span className="font-semibold text-ink">
+            Bs {formatBs(bestPrice)}
           </span>
         </p>
 
@@ -86,24 +89,24 @@ export default function UsdtModal({
           {offers.map((offer, index) => (
             <div
               key={`${offer.nickName}-${index}`}
-              className="rounded-2xl border border-[#27313d] bg-[#141a22] p-4"
+              className="rounded-tile border border-hair bg-surface-raised px-4 py-3"
             >
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <p className="text-sm font-medium text-slate-100">
+                  <p className="text-sm font-medium text-ink">
                     {offer.nickName}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-ink-faint">
                     {offer.userIdentity || "Verificado"}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-ink-muted">
                     {offer.payTypes.join(", ")}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-slate-100">
-                    Bs {offer.price.toFixed(2)}
+                  <p className="text-sm font-semibold text-ink">
+                    Bs {formatBs(offer.price)}
                   </p>
                 </div>
               </div>
@@ -113,7 +116,7 @@ export default function UsdtModal({
 
         <button
           onClick={onClose}
-          className="mt-5 w-full rounded-full border border-[#2a3440] bg-[#151b23] py-2.5 text-sm font-medium text-slate-200 transition hover:bg-[#1b222c]"
+          className="mt-5 min-h-11 w-full rounded-full border border-hair bg-surface-raised text-sm font-semibold text-ink-soft transition hover:text-ink"
         >
           Cerrar
         </button>

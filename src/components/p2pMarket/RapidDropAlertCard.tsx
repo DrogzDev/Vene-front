@@ -16,22 +16,24 @@ type Props = {
  * ocurrió, nunca como un genérico "cayó X%".
  *
  * Solo informa: no incluye ninguna instrucción de compra/venta.
+ *
+ * Va en el color de "baja" del mercado (rojo, ver PRICE).
  */
 export default function RapidDropAlertCard({ alert, snapshot, onViewAnalysis }: Props) {
   return (
-    <div className="rounded-[16px] border border-[#f87171]/20 bg-[#2a1414]/60 p-4">
+    <div className="rounded-tile border border-fall/25 bg-fall/[0.08] p-4">
       <div className="flex items-start gap-3">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#f87171]/15 text-[#f87171]">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-fall/15 text-fall">
           <ArrowDownIcon className="h-4 w-4" />
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-[#fca5a5]">
+          <p className="flex items-center gap-1.5 text-sm font-semibold text-fall">
             <AlertIcon className="h-3.5 w-3.5" />
             Caída fuerte detectada
           </p>
 
-          <p className="mt-1 text-xs text-[#e5b8b8]">
+          <p className="mt-1 text-xs text-ink-soft">
             <span className="font-semibold tabular-nums">
               {alert.change_percent.toFixed(2)}%
             </span>{" "}
@@ -40,18 +42,18 @@ export default function RapidDropAlertCard({ alert, snapshot, onViewAnalysis }: 
 
           <div className="mt-3 grid grid-cols-2 gap-3">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.08em] text-[#8b93a3]">
+              <p className="text-[10px] uppercase tracking-[0.08em] text-ink-muted">
                 Precio actual
               </p>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums text-[#e9ebf0]">
+              <p className="mt-0.5 text-sm font-semibold tabular-nums text-ink">
                 Bs {formatBs(snapshot.current_price)}
               </p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.08em] text-[#8b93a3]">
+              <p className="text-[10px] uppercase tracking-[0.08em] text-ink-muted">
                 Desde máximo
               </p>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums text-[#f87171]">
+              <p className="mt-0.5 text-sm font-semibold tabular-nums text-fall">
                 {snapshot.distance_from_high != null
                   ? `${snapshot.distance_from_high.toFixed(2)}%`
                   : "—"}
@@ -62,7 +64,7 @@ export default function RapidDropAlertCard({ alert, snapshot, onViewAnalysis }: 
           <button
             type="button"
             onClick={onViewAnalysis}
-            className="mt-3 text-xs font-semibold text-[#c4b5fd] outline-none transition hover:text-[#ddd6fe] focus-visible:underline"
+            className="mt-3 text-xs font-semibold text-brand-light outline-none transition hover:text-brand-light focus-visible:underline"
           >
             Ver análisis
           </button>

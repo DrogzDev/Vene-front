@@ -4,7 +4,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={`rounded-lg bg-white/[0.05] motion-safe:animate-pulse-soft ${className}`}
+      className={`rounded-tile bg-surface-raised motion-safe:animate-pulse-soft ${className}`}
     />
   )
 }
@@ -17,26 +17,17 @@ export function PriceHeroSkeleton() {
   return (
     <div role="status" aria-label="Cargando precios">
       <div className="flex items-end justify-between gap-4">
-        <Skeleton className="h-10 w-44" />
+        <Skeleton className="h-9 w-44" />
         <Skeleton className="h-7 w-20 rounded-full" />
       </div>
 
-      <Skeleton className="mt-3 h-3 w-40" />
-      <Skeleton className="mt-3 h-7 w-52 rounded-lg" />
-
-      <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-4 border-t border-white/[0.05] pt-4 sm:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index}>
-            <Skeleton className="h-2.5 w-14" />
-            <Skeleton className="mt-2 h-4 w-20" />
-          </div>
-        ))}
-      </div>
+      <Skeleton className="mt-2 h-3 w-40" />
+      <Skeleton className="mt-3 h-[52px] w-full" />
     </div>
   )
 }
 
-export function ChartSkeleton({ height }: { height: number }) {
+export function ChartSkeleton({ height }: { height: number | string }) {
   return (
     <div
       role="status"
@@ -67,7 +58,7 @@ type EmptyStateProps = {
   description: string
   icon?: "chart" | "alert"
   action?: React.ReactNode
-  height?: number
+  height?: number | string
 }
 
 export function EmptyState({
@@ -84,12 +75,12 @@ export function EmptyState({
       className="flex flex-col items-center justify-center gap-2 px-6 py-10 text-center"
       style={height ? { minHeight: height } : undefined}
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.04] text-[#646d7d]">
+      <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.04] text-ink-faint">
         <Icon className="h-5 w-5" />
       </span>
 
-      <p className="mt-1 text-sm font-semibold text-[#c9cfda]">{title}</p>
-      <p className="max-w-[28ch] text-xs leading-relaxed text-[#646d7d]">{description}</p>
+      <p className="mt-1 text-[15px] font-bold text-ink-soft">{title}</p>
+      <p className="max-w-[30ch] text-[12px] leading-relaxed text-ink-faint">{description}</p>
 
       {action}
     </div>

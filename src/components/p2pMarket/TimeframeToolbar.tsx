@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react"
+
 import type { P2PSupportedTimeframe, P2PTimeframeKey } from "../../types/prices"
 
 type Props = {
@@ -16,11 +18,26 @@ type Props = {
  * de ocultarse sin explicación.
  */
 export default function TimeframeToolbar({ timeframes, value, onChange }: Props) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
+
+  // En 360 px no caben las siete temporalidades: la activa se trae a la
+  // vista para que nunca quede escondida al final de la fila.
+  useEffect(() => {
+    const active = containerRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')
+    const container = containerRef.current
+
+    // Solo se desplaza la fila, nunca la página.
+    if (active && container) {
+      container.scrollLeft = active.offsetLeft - container.clientWidth / 2 + active.clientWidth / 2
+    }
+  }, [value, timeframes])
+
   return (
     <div
+      ref={containerRef}
       role="radiogroup"
       aria-label="Timeframe"
-      className="-mx-1 flex snap-x gap-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="no-scrollbar relative -mx-1 flex snap-x gap-1 overflow-x-auto px-1"
     >
       {timeframes.map((timeframe) => {
         const isActive = timeframe.key === value
@@ -34,12 +51,12 @@ export default function TimeframeToolbar({ timeframes, value, onChange }: Props)
             disabled={!timeframe.available}
             title={timeframe.available ? undefined : (timeframe.reason ?? undefined)}
             onClick={() => timeframe.available && onChange(timeframe.key)}
-            className={`h-8 shrink-0 snap-start rounded-lg px-2.5 text-xs font-semibold tabular-nums outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-white/30 ${
+            className={`h-9 min-w-[42px] shrink-0 snap-start rounded-[10px] px-3 text-[13px] font-semibold tabular-nums outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-95 ${
               isActive
-                ? "bg-white/[0.1] text-white"
+                ? "bg-brand/15 text-brand-light ring-1 ring-inset ring-brand/40"
                 : timeframe.available
-                  ? "text-[#8b93a3] hover:bg-white/[0.05] hover:text-[#c9cfda]"
-                  : "cursor-not-allowed text-[#3f4757]"
+                  ? "text-ink-muted hover:bg-surface-raised hover:text-ink-soft"
+                  : "cursor-not-allowed text-ink-faint/60"
             }`}
           >
             {timeframe.label}

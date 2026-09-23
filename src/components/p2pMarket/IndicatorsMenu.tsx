@@ -22,7 +22,17 @@ export { INDICATOR_OPTIONS }
  */
 export default function IndicatorsMenu({ active, onToggle }: Props) {
   return (
-    <div className="flex items-center gap-1.5" role="group" aria-label="Indicadores">
+    // Scroller horizontal y no una fila rígida: con el selector de
+    // gráfico al lado, tres chips que no encogen desbordaban la página
+    // en pantallas de 360-411 px. Y un desbordamiento horizontal no es
+    // solo feo: el WebView de Android se aleja para encajarlo, lo que
+    // agranda el viewport de layout y deja la navegación inferior fija
+    // por debajo de la pantalla visible.
+    <div
+      className="no-scrollbar flex min-w-0 snap-x items-center gap-1.5 overflow-x-auto"
+      role="group"
+      aria-label="Indicadores"
+    >
       {INDICATOR_OPTIONS.map((option) => {
         const isActive = active.has(option.key)
 
@@ -32,10 +42,10 @@ export default function IndicatorsMenu({ active, onToggle }: Props) {
             type="button"
             aria-pressed={isActive}
             onClick={() => onToggle(option.key)}
-            className={`inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-semibold outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-white/30 ${
+            className={`inline-flex h-9 shrink-0 snap-start items-center gap-1.5 rounded-[10px] border px-3 text-[12px] font-semibold outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-95 ${
               isActive
                 ? "border-transparent bg-white/[0.08] text-white"
-                : "border-white/[0.06] text-[#646d7d] hover:text-[#c9cfda]"
+                : "border-hair text-ink-faint hover:text-ink-soft"
             }`}
           >
             <span

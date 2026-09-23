@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  // 'android' contiene el proyecto nativo que genera Capacitor, con
+  // artefactos de build (native-bridge.js y compañía) que no son código
+  // nuestro y que ensucian el lint con errores ajenos.
+  globalIgnores(['dist', 'android']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

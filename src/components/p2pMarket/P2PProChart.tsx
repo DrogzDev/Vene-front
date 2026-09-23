@@ -23,6 +23,7 @@ import type { P2PChartCandle, P2PIndicatorSeries } from "../../types/prices"
 import { formatBs } from "../../utils/format"
 import { formatFullTime, formatReadoutTime, formatTickMark } from "../priceHistory/chartFormat"
 import { COLORS } from "./theme"
+import { PRICE } from "../priceHistory/theme"
 import { INDICATOR_OPTIONS } from "./IndicatorsMenu"
 import type { IndicatorKey } from "./IndicatorsMenu"
 
@@ -254,12 +255,13 @@ export default function P2PProChart({
         candleSeriesRef.current = chart.addSeries(
           CandlestickSeries,
           {
-            upColor: COLORS.up,
-            downColor: COLORS.down,
-            borderUpColor: COLORS.up,
-            borderDownColor: COLORS.down,
-            wickUpColor: COLORS.up,
-            wickDownColor: COLORS.down,
+            // Convención estándar: vela que sube verde, que baja roja (ver PRICE).
+            upColor: PRICE.rise,
+            downColor: PRICE.fall,
+            borderUpColor: PRICE.rise,
+            borderDownColor: PRICE.fall,
+            wickUpColor: PRICE.rise,
+            wickDownColor: PRICE.fall,
             priceLineVisible: false,
             priceFormat: { type: "price", precision: 2, minMove: 0.01 },
           },
@@ -386,40 +388,40 @@ export default function P2PProChart({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pb-1.5 text-[11px] tabular-nums">
         {displayedReadout ? (
           <>
-            <span className="text-[#646d7d]">
+            <span className="text-ink-faint">
               O{" "}
-              <span className="font-semibold text-[#d7dbe3]">
+              <span className="font-semibold text-ink-soft">
                 {formatBs(displayedReadout.open)}
               </span>
             </span>
-            <span className="text-[#646d7d]">
+            <span className="text-ink-faint">
               H{" "}
-              <span className="font-semibold text-[#d7dbe3]">
+              <span className="font-semibold text-ink-soft">
                 {formatBs(displayedReadout.high)}
               </span>
             </span>
-            <span className="text-[#646d7d]">
+            <span className="text-ink-faint">
               L{" "}
-              <span className="font-semibold text-[#d7dbe3]">
+              <span className="font-semibold text-ink-soft">
                 {formatBs(displayedReadout.low)}
               </span>
             </span>
-            <span className="text-[#646d7d]">
+            <span className="text-ink-faint">
               C{" "}
-              <span className="font-semibold text-[#d7dbe3]">
+              <span className="font-semibold text-ink-soft">
                 {formatBs(displayedReadout.close)}
               </span>
             </span>
-            <span className="font-semibold" style={{ color: isUp ? COLORS.up : COLORS.down }}>
+            <span className="font-semibold" style={{ color: isUp ? PRICE.rise : PRICE.fall }}>
               {isUp ? "+" : "−"}
               {Math.abs(displayedReadout.changePercent).toFixed(2)}%
             </span>
-            <span className="hidden text-[#4d5665] sm:inline">
+            <span className="hidden text-ink-faint sm:inline">
               {formatReadoutTime(displayedReadout.time, readoutInterval)}
             </span>
           </>
         ) : (
-          <span className="text-[#4d5665]">Sin velas en este rango</span>
+          <span className="text-ink-faint">Sin velas en este rango</span>
         )}
       </div>
 

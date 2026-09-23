@@ -1,41 +1,142 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { ArrowDownUp, Check, Copy } from "lucide-react"
 
-type ConverterMode = "USD" | "EUR" | "USDT" | "AVERAGE" | "CUSTOM"
+import { EASE, gsap, prefersReducedMotion, withMotion } from "../motion/motion"
+import { formatBs, formatRelativeFromNow } from "../utils/format"
+import CurrencyBadge from "./ui/CurrencyBadge"
+import type { CurrencyCode } from "./ui/CurrencyBadge"
+import { IconButton } from "./ui/primitives"
+import { CUSTOM_RATE_STORAGE_KEY } from "./converterModes"
+import type { ConverterMode, ConverterRates } from "./converterModes"
 
-type ConverterCardProps = {
-  usdRate: number
-  eurRate: number
-  usdtRate: number
-  averageRate: number
-  onCustomModeChange?: (isCustom: boolean) => void
+type Props = ConverterRates & {
+  mode: ConverterMode
+  /** Momento de las tasas, para "Actualizado hace X". */
+  updatedAt?: string | null
 }
 
-const CUSTOM_RATE_STORAGE_KEY = "vex_custom_rate"
+/** Moneda de origen de cada tasa (el Promedio también se expresa en USD). */
+function currencyOf(mode: ConverterMode): CurrencyCode {
+  if (mode === "EUR") return "EUR"
+  if (mode === "USDT") return "USDT"
+  if (mode === "CUSTOM") return "DIV"
+  return "USD"
+}
 
-export default function ConverterCard({
-  usdRate,
-  eurRate,
-  usdtRate,
-  averageRate,
-  onCustomModeChange,
-}: ConverterCardProps) {
+function Side({
+  label,
+  contentRef,
+  children,
+}: {
+  label: string
+  contentRef: React.RefObject<HTMLDivElement | null>
+  children: React.ReactNode
+}) {
+  return (
+    <div className="px-3.5 pb-3 pt-2.5">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{label}</p>
+      <div ref={contentRef} className="mt-1.5 flex items-center gap-3">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Calculadora de divisas instantánea: DE → A.
+ *
+ * La conversión ocurre al teclear, así que no hay botón "Convertir"; el
+ * resultado es el protagonista y se puede copiar con un toque. Se puede
+ * invertir el sentido (bolívares → divisa) con el botón central.
+ *
+ * Movimiento: al invertir, el icono del botón gira 180° y el contenido
+ * de cada fila entra desde el lado contrario (lo de arriba "baja", lo de
+ * abajo "sube"). Al cambiar de tasa solo se refrescan iconos, etiquetas
+ * y resultado. La card nunca rota ni se mueve entera.
+ */
+export default function ConverterCard({ usdRate, eurRate, usdtRate, averageRate, mode, updatedAt }: Props) {
   const [amount, setAmount] = useState("1")
-  const [mode, setMode] = useState<ConverterMode>("USD")
-  const [customRate, setCustomRate] = useState("")
+  const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    onCustomModeChange?.(mode === "CUSTOM")
-  }, [mode, onCustomModeChange])
+  // Inicialización perezosa: el primer render ya trae la tasa guardada.
+  const [customRate, setCustomRate] = useState(() => {
+    try {
+      return localStorage.getItem(CUSTOM_RATE_STORAGE_KEY) ?? ""
+    } catch {
+      return ""
+    }
+  })
 
-  useEffect(() => {
-    const savedRate = localStorage.getItem(CUSTOM_RATE_STORAGE_KEY)
-    if (savedRate) {
-      setCustomRate(savedRate)
+  /** false: divisa → Bs. true: Bs → divisa. */
+  const [inverted, setInverted] = useState(false)
+
+  const cardRef = useRef<HTMLElement | null>(null)
+  const fromRef = useRef<HTMLDivElement | null>(null)
+  const toRef = useRef<HTMLDivElement | null>(null)
+  const swapIconRef = useRef<HTMLSpanElement | null>(null)
+  const rateLineRef = useRef<HTMLParagraphElement | null>(null)
+  const previous = useRef({ inverted, mode })
+
+  // Contexto GSAP para el giro del botón: se revierte al desmontar.
+  const swapContext = useRef<gsap.Context | null>(null)
+
+  useLayoutEffect(() => {
+    const context = gsap.context(() => {}, cardRef)
+    swapContext.current = context
+
+    return () => {
+      context.revert()
+      swapContext.current = null
     }
   }, [])
 
+  // Swap o cambio de tasa: se anima solo el contenido que cambió.
+  useLayoutEffect(() => {
+    const last = previous.current
+    previous.current = { inverted, mode }
+
+    const swapped = last.inverted !== inverted
+    const rateChanged = last.mode !== mode
+
+    if (!swapped && !rateChanged) return
+
+    const from = fromRef.current
+    const to = toRef.current
+    const rateLine = rateLineRef.current
+
+    if (!from || !to) return
+
+    return withMotion(cardRef.current, () => {
+      const settle = { y: 0, opacity: 1, duration: 0.22, ease: EASE.out, clearProps: "opacity,transform" }
+
+      if (swapped) {
+        // Lo que estaba abajo sube a DE; lo que estaba arriba baja a A.
+        gsap.fromTo(from, { y: 8, opacity: 0 }, settle)
+        gsap.fromTo(to, { y: -8, opacity: 0 }, settle)
+        return
+      }
+
+      gsap.fromTo(rateLine ? [from, to, rateLine] : [from, to], { y: 4, opacity: 0 }, { ...settle, duration: 0.2, stagger: 0.03 })
+    })
+  }, [inverted, mode])
+
+  function swap() {
+    setInverted((value) => !value)
+
+    const icon = swapIconRef.current
+
+    if (!icon || prefersReducedMotion()) return
+
+    swapContext.current?.add(() => {
+      gsap.to(icon, { rotation: "+=180", duration: 0.25, ease: EASE.out })
+    })
+  }
+
   useEffect(() => {
-    localStorage.setItem(CUSTOM_RATE_STORAGE_KEY, customRate)
+    // Solo se persiste una tasa escrita de verdad.
+    if (customRate) {
+      localStorage.setItem(CUSTOM_RATE_STORAGE_KEY, customRate)
+    }
   }, [customRate])
 
   const rate = useMemo(() => {
@@ -45,104 +146,116 @@ export default function ConverterCard({
     if (mode === "AVERAGE") return averageRate
 
     const parsed = Number(customRate)
+
     return parsed > 0 ? parsed : 0
   }, [mode, usdRate, eurRate, usdtRate, averageRate, customRate])
 
   const numericAmount = Number(amount) || 0
-  const bs = numericAmount * rate
+  const result = inverted ? (rate > 0 ? numericAmount / rate : 0) : numericAmount * rate
+
+  const foreign = currencyOf(mode)
+  const from: CurrencyCode = inverted ? "VES" : foreign
+  const to: CurrencyCode = inverted ? foreign : "VES"
+  const unitName = foreign === "DIV" ? "divisa" : foreign
+
+  const resultText = `${to === "VES" ? "Bs " : ""}${formatBs(result)}`
+
+  async function copyResult() {
+    try {
+      await navigator.clipboard.writeText(formatBs(result))
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1600)
+    } catch {
+      setCopied(false)
+    }
+  }
 
   return (
-    <section className="relative left-1/2 w-[min(90dvw,26rem)] -translate-x-1/2 overflow-hidden rounded-[14px] border border-[#27313d] bg-gradient-to-br from-[#161c24] via-[#11161d] to-[#0c1117] p-3.5 shadow-[0_14px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl">
-      {/* glow superior suave */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(88,104,126,0.06),transparent_28%)]" />
+    <section ref={cardRef} aria-label="Conversor" className="overflow-hidden rounded-card border border-hair bg-surface">
+      <Side label="De" contentRef={fromRef}>
+        <CurrencyBadge code={from} />
+        <input
+          type="number"
+          inputMode="decimal"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          aria-label={`Cantidad en ${from === "VES" ? "bolívares" : unitName}`}
+          placeholder="0"
+          className="min-w-0 flex-1 bg-transparent text-right text-[24px] font-bold tabular-nums text-ink-soft outline-none placeholder:text-ink-faint focus:text-ink"
+        />
+      </Side>
 
-      {/* creciente inferior inspirada en el svg */}
-      <div className="pointer-events-none absolute -bottom-10 left-1/2 h-32 w-[100%] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(164,55,68,0.20)_0%,rgba(115,64,108,0.14)_38%,rgba(70,93,146,0.10)_64%,rgba(22,28,36,0)_100%)] blur-2xl" />
-
-      {/* segunda capa para que se vea más profunda */}
-      <div className="pointer-events-none absolute bottom-0 left-1/2 h-20 w-[100%] -translate-x-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(138,44,58,0.10)_0%,rgba(91,61,108,0.06)_45%,rgba(18,24,32,0)_100%)] blur-xl" />
-
-      <div className="relative z-10">
-        <div className="mb-4 flex flex-wrap justify-center gap-2">
-          {(
-            [
-              { key: "USD", label: "Dólar" },
-              { key: "EUR", label: "Euro" },
-              { key: "USDT", label: "USDT" },
-              { key: "AVERAGE", label: "Promedio" },
-              { key: "CUSTOM", label: "Personalizada" },
-            ] as const
-          ).map((item) => {
-            const active = mode === item.key
-
-            return (
-              <button
-                key={item.key}
-                onClick={() => setMode(item.key)}
-                className={`rounded-xl px-3 py-1.5 text-[10px] font-medium transition-all duration-200 ${
-                  active
-                    ? "bg-gradient-to-r from-[#4a5568] to-[#2d3748] text-white shadow-[0_4px_16px_rgba(74,85,104,0.25)] border border-[#4a5568]/50"
-                    : "bg-[#1a1f2e]/60 text-[#94a3b8] border border-[#2d3748]/30 hover:bg-[#2d3748]/40 hover:text-[#e2e8f0] hover:border-[#4a5568]/50"
-                }`}
-              >
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="space-y-2">
-          <div>
-            <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#64748b]">
-              Tengo ({mode === "CUSTOM" ? "Bs por unidad" : mode})
-            </p>
-
-            <div className="rounded-lg border border-[#2d3748]/40 bg-[#0f1419]/80 px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm">
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full bg-transparent text-lg font-semibold text-[#f1f5f9] outline-none placeholder:text-[#475569]"
-                placeholder="0"
-              />
-            </div>
-          </div>
-
-          {mode === "CUSTOM" ? (
-            <div>
-              <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#64748b]">
-                Tasa personalizada
-              </p>
-
-              <div className="rounded-lg border border-[#2d3748]/40 bg-[#0f1419]/80 px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm">
-                <input
-                  type="number"
-                  value={customRate}
-                  onChange={(e) => setCustomRate(e.target.value)}
-                  className="w-full bg-transparent text-base font-semibold text-[#f1f5f9] outline-none placeholder:text-[#475569]"
-                  placeholder="Ej: 72.50"
-                />
-              </div>
-
-              <p className="mt-1 text-[8px] text-[#64748b]">
-                Esta tasa se guarda en la app.
-              </p>
-            </div>
-          ) : null}
-
-          <div>
-            <p className="mb-1 text-[8px] font-semibold uppercase tracking-[0.15em] text-[#64748b]">
-              Recibo (Bs)
-            </p>
-
-            <div className="rounded-lg border border-[#2d3748]/40 bg-[#0f1419]/80 px-2 py-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.02)] backdrop-blur-sm">
-              <p className="text-lg font-semibold text-[#f1f5f9]">
-                Bs {bs.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Separador con el botón de invertir encima. El giro va en el
+          icono, no en el botón: el botón ya usa transform para centrarse. */}
+      <div className="relative mx-3.5 h-px bg-hair">
+        <button
+          type="button"
+          onClick={swap}
+          aria-label="Invertir el sentido de la conversión"
+          className="absolute left-1/2 top-1/2 z-10 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-hairbright bg-surface-raised text-brand-light outline-none transition-colors duration-150 hover:bg-brand/15 focus-visible:ring-2 focus-visible:ring-brand/50"
+        >
+          <span ref={swapIconRef} className="flex">
+            <ArrowDownUp className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
+          </span>
+        </button>
       </div>
+
+      <Side label="A" contentRef={toRef}>
+        <CurrencyBadge code={to} />
+        <p
+          aria-live="polite"
+          className="min-w-0 flex-1 truncate text-right text-[clamp(28px,8.5vw,34px)] font-extrabold tracking-tight tabular-nums text-ink"
+        >
+          {resultText}
+        </p>
+      </Side>
+
+      <div className="flex items-center justify-between gap-3 border-t border-hair bg-bg-soft/60 py-1.5 pl-3.5 pr-2">
+        <p ref={rateLineRef} className="min-w-0 truncate text-[12px] text-ink-muted">
+          {rate > 0 ? (
+            <>
+              1 {unitName} = Bs {formatBs(rate)}
+              {updatedAt && mode !== "CUSTOM" && (
+                <span className="text-ink-faint"> · {formatRelativeFromNow(updatedAt)}</span>
+              )}
+            </>
+          ) : (
+            "Escribe una tasa para convertir."
+          )}
+        </p>
+
+        <IconButton
+          label={copied ? "Resultado copiado" : "Copiar resultado"}
+          onClick={copyResult}
+          disabled={rate <= 0}
+          active={copied}
+        >
+          {copied ? (
+            <Check className="h-4 w-4 text-up" strokeWidth={2.4} aria-hidden />
+          ) : (
+            <Copy className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+          )}
+        </IconButton>
+      </div>
+
+      {mode === "CUSTOM" && (
+        <div className="border-t border-hair px-3.5 py-3">
+          <label className="block">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Tasa personalizada (Bs por unidad)
+            </span>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={customRate}
+              onChange={(event) => setCustomRate(event.target.value)}
+              placeholder="Ej: 72,50"
+              className="mt-1.5 h-11 w-full rounded-ctl border border-hair bg-bg-soft px-3.5 text-[17px] font-semibold tabular-nums text-ink outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-brand/50"
+            />
+          </label>
+          <p className="mt-1.5 text-[11px] text-ink-faint">Esta tasa se guarda en la app.</p>
+        </div>
+      )}
     </section>
   )
 }

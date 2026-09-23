@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
+  AreaSeries,
   CandlestickSeries,
   ColorType,
   CrosshairMode,
-  LineSeries,
   LineStyle,
   createChart,
 } from "lightweight-charts"
@@ -25,7 +25,7 @@ import type {
 } from "../../types/prices"
 import { formatBs, formatPriceAxis } from "../../utils/format"
 import { formatFullTime, formatReadoutTime, formatTickMark } from "./chartFormat"
-import { COLORS } from "./theme"
+import { COLORS, PRICE } from "./theme"
 import type { SourceOption } from "./theme"
 
 export type ChartMode = "line" | "candles"
@@ -35,6 +35,7 @@ const SOURCE_FIELD: Record<PriceSource, keyof PriceChartPoint> = {
   average: "average_price",
   bcv: "bcv",
   usdt: "binance_best_price",
+  eur: "eur_bcv",
 }
 
 type Props = {
@@ -46,7 +47,8 @@ type Props = {
   range: PriceChartRange
   /** Velas por hora o por día: cambia el formato de los ejes. */
   interval: "hour" | "day"
-  height: number
+  /** Píxeles o cualquier alto CSS (p. ej. "clamp(240px, 33dvh, 300px)"). */
+  height: number | string
   /**
    * Cada incremento devuelve el chart a su encuadre original. Se pasa
    * como señal en vez de exponer el objeto chart al padre.
@@ -100,6 +102,17 @@ function toLineData(points: PriceChartPoint[], sourceKey: PriceSource): LineData
   return rows
 }
 
+/** "#20D6A0" + 0.16 → "rgba(32, 214, 160, 0.16)". */
+function withAlpha(hex: string, alpha: number) {
+  const match = /^#([0-9a-f]{6})$/i.exec(hex)
+
+  if (!match) return hex
+
+  const value = parseInt(match[1], 16)
+
+  return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`
+}
+
 function toCandleData(candles: PriceCandle[]): CandlestickData<Time>[] {
   return candles.map((candle) => ({
     time: candle.time as UTCTimestamp,
@@ -134,7 +147,7 @@ export default function PriceChart({
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const chartRef = useRef<IChartApi | null>(null)
-  const lineSeriesRef = useRef<ISeriesApi<"Line"> | null>(null)
+  const lineSeriesRef = useRef<ISeriesApi<"Area"> | null>(null)
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null)
 
   const [readout, setReadout] = useState<Readout | null>(null)
@@ -248,7 +261,7 @@ export default function PriceChart({
     const container = containerRef.current
 
     if (container) {
-      container.style.height = `${height}px`
+      container.style.height = typeof height === "number" ? `${height}px` : height
     }
   }, [height])
 
@@ -267,7 +280,9 @@ export default function PriceChart({
       }
 
       if (!lineSeriesRef.current) {
-        lineSeriesRef.current = chart.addSeries(LineSeries, {
+        // Área con un relleno muy tenue bajo la línea: precio y
+        // gráfico se leen como una sola pieza.
+        lineSeriesRef.current = chart.addSeries(AreaSeries, {
           lineWidth: 2,
           priceLineVisible: false,
           lastValueVisible: true,
@@ -279,7 +294,9 @@ export default function PriceChart({
       }
 
       lineSeriesRef.current.applyOptions({
-        color: source.color,
+        lineColor: source.color,
+        topColor: withAlpha(source.color, 0.16),
+        bottomColor: withAlpha(source.color, 0),
         crosshairMarkerBackgroundColor: source.color,
         crosshairMarkerBorderColor: COLORS.background,
         // Los puntos solo aportan cuando hay pocas muestras; con
@@ -297,12 +314,13 @@ export default function PriceChart({
 
       if (!candleSeriesRef.current) {
         candleSeriesRef.current = chart.addSeries(CandlestickSeries, {
-          upColor: COLORS.up,
-          downColor: COLORS.down,
-          borderUpColor: COLORS.up,
-          borderDownColor: COLORS.down,
-          wickUpColor: COLORS.up,
-          wickDownColor: COLORS.down,
+          // Convención estándar: vela que sube verde, que baja roja (ver PRICE).
+          upColor: PRICE.rise,
+          downColor: PRICE.fall,
+          borderUpColor: PRICE.rise,
+          borderDownColor: PRICE.fall,
+          wickUpColor: PRICE.rise,
+          wickDownColor: PRICE.fall,
           priceLineVisible: false,
           priceFormat: { type: "price", precision: 2, minMove: 0.01 },
         })
@@ -422,21 +440,21 @@ export default function PriceChart({
       <div className="flex min-h-[1.5rem] flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] tabular-nums">
         {readout && mode === "candles" ? (
           <>
-            <span className="text-[#646d7d]">
-              O <span className="font-semibold text-[#d7dbe3]">{formatBs(readout.open ?? 0)}</span>
+            <span className="text-ink-faint">
+              O <span className="font-semibold text-ink-soft">{formatBs(readout.open ?? 0)}</span>
             </span>
-            <span className="text-[#646d7d]">
-              H <span className="font-semibold text-[#d7dbe3]">{formatBs(readout.high ?? 0)}</span>
+            <span className="text-ink-faint">
+              H <span className="font-semibold text-ink-soft">{formatBs(readout.high ?? 0)}</span>
             </span>
-            <span className="text-[#646d7d]">
-              L <span className="font-semibold text-[#d7dbe3]">{formatBs(readout.low ?? 0)}</span>
+            <span className="text-ink-faint">
+              L <span className="font-semibold text-ink-soft">{formatBs(readout.low ?? 0)}</span>
             </span>
-            <span className="text-[#646d7d]">
-              C <span className="font-semibold text-[#d7dbe3]">{formatBs(readout.close ?? 0)}</span>
+            <span className="text-ink-faint">
+              C <span className="font-semibold text-ink-soft">{formatBs(readout.close ?? 0)}</span>
             </span>
             <span
               className="font-semibold"
-              style={{ color: isUp ? COLORS.up : COLORS.down }}
+              style={{ color: isUp ? PRICE.rise : PRICE.fall }}
             >
               {isUp ? "+" : "−"}
               {Math.abs(readout.changePercent ?? 0).toFixed(2)}%
@@ -444,11 +462,11 @@ export default function PriceChart({
           </>
         ) : readout ? (
           <>
-            <span className="font-semibold text-[#d7dbe3]">Bs {formatBs(readout.price)}</span>
-            <span className="text-[#646d7d]">{formatReadoutTime(readout.time, interval)}</span>
+            <span className="font-semibold text-ink-soft">Bs {formatBs(readout.price)}</span>
+            <span className="text-ink-faint">{formatReadoutTime(readout.time, interval)}</span>
           </>
         ) : (
-          <span className="text-[#4d5665]">
+          <span className="text-ink-faint">
             {mode === "candles"
               ? "Toca una vela para ver su apertura, máximo, mínimo y cierre"
               : "Toca la gráfica para ver el precio en cada momento"}
@@ -467,7 +485,7 @@ export default function PriceChart({
       {/* Tooltip flotante. */}
       {tooltip.visible && readout && (
         <div
-          className="pointer-events-none absolute z-10 rounded-xl border border-white/10 bg-[#12151c]/95 px-2.5 py-1.5 text-[11px] shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+          className="pointer-events-none absolute z-10 rounded-xl border border-hair bg-surface/95 px-2.5 py-1.5 text-[11px] shadow-[0_10px_30px_rgba(0,0,0,0.45)] backdrop-blur-sm"
           style={{ left: tooltip.left, top: tooltip.top + 32 }}
         >
           {mode === "line" ? (
@@ -475,36 +493,36 @@ export default function PriceChart({
               <p className="font-semibold tabular-nums" style={{ color: source.color }}>
                 Bs {formatBs(readout.price)}
               </p>
-              <p className="mt-0.5 whitespace-nowrap text-[#7d8696]">
+              <p className="mt-0.5 whitespace-nowrap text-ink-muted">
                 {formatReadoutTime(readout.time, interval)}
               </p>
             </>
           ) : (
             <>
-              <p className="whitespace-nowrap text-[#7d8696]">
+              <p className="whitespace-nowrap text-ink-muted">
                 {formatReadoutTime(readout.time, interval)}
               </p>
               <dl className="mt-1 grid grid-cols-[auto_auto] gap-x-2.5 gap-y-0.5 tabular-nums">
-                <dt className="text-[#646d7d]">Apertura</dt>
-                <dd className="text-right font-semibold text-[#d7dbe3]">
+                <dt className="text-ink-faint">Apertura</dt>
+                <dd className="text-right font-semibold text-ink-soft">
                   {formatBs(readout.open ?? 0)}
                 </dd>
-                <dt className="text-[#646d7d]">Máximo</dt>
-                <dd className="text-right font-semibold text-[#d7dbe3]">
+                <dt className="text-ink-faint">Máximo</dt>
+                <dd className="text-right font-semibold text-ink-soft">
                   {formatBs(readout.high ?? 0)}
                 </dd>
-                <dt className="text-[#646d7d]">Mínimo</dt>
-                <dd className="text-right font-semibold text-[#d7dbe3]">
+                <dt className="text-ink-faint">Mínimo</dt>
+                <dd className="text-right font-semibold text-ink-soft">
                   {formatBs(readout.low ?? 0)}
                 </dd>
-                <dt className="text-[#646d7d]">Cierre</dt>
-                <dd className="text-right font-semibold text-[#d7dbe3]">
+                <dt className="text-ink-faint">Cierre</dt>
+                <dd className="text-right font-semibold text-ink-soft">
                   {formatBs(readout.close ?? 0)}
                 </dd>
               </dl>
               <p
                 className="mt-1 text-right font-semibold tabular-nums"
-                style={{ color: isUp ? COLORS.up : COLORS.down }}
+                style={{ color: isUp ? PRICE.rise : PRICE.fall }}
               >
                 {isUp ? "+" : "−"}
                 {Math.abs(readout.changePercent ?? 0).toFixed(2)}%

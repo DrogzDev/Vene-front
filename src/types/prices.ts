@@ -32,6 +32,8 @@ export type PricesHomeResponse = {
 export type DailyCloseHistoryItem = {
   date: string
   bcv: number
+  /** Euro BCV del cierre. Ya lo enviaba Django; null si no se capturó. */
+  eur_bcv: number | null
   binance_best_price: number
   average_price: number
   spread_absolute: number
@@ -45,7 +47,7 @@ export type DailyCloseHistoryResponse = {
   data: DailyCloseHistoryItem[]
 }
 
-export type PriceChartRange = "24h" | "7d" | "30d"
+export type PriceChartRange = "24h" | "7d" | "30d" | "90d"
 
 export type PriceChartGranularity = "snapshot" | "daily"
 
@@ -61,7 +63,7 @@ export type PriceChartPoint = {
 }
 
 /** Clave pública de cada serie tal y como la espera el backend. */
-export type PriceSource = "average" | "bcv" | "usdt"
+export type PriceSource = "average" | "bcv" | "usdt" | "eur"
 
 export type PriceChartSummary = {
   series: PriceSource
@@ -546,11 +548,93 @@ export type AiStreamMetadata = {
   risk_level: P2PRiskLevel
 }
 
+/**
+ * Lectura oferta bancaria + reacción del mercado que Django calcula para
+ * el análisis IA (api/services/market_reading.py).
+ *
+ * `observations` son HECHOS registrados; `derived_signals` son
+ * INFERENCIAS sobre esos hechos (no miden cuántas divisas hay). Cualquier
+ * campo puede faltar: sin muestra suficiente el backend no lo manda.
+ */
+export type InterventionEffect = "effective" | "partial" | "absorbed" | "inconclusive"
+
+export type FxSupplyPressure = "low" | "moderate" | "high"
+
+export type SupplyMarketScenario =
+  | "no_supply_rising"
+  | "supply_absorbed"
+  | "supply_relief"
+  | "no_supply_stable"
+  | "no_supply_falling"
+  | "supply_reaction_pending"
+  | "before_supply_window"
+  | "no_reliable_supply_data"
+
+export type BankSupplyInstitution = {
+  label: string
+  count: number
+  status?: FxSupplyStatus | null
+  stage?: FxSupplyStage | null
+  usual_window?: string | null
+  monitor_until?: string | null
+  first_time?: string
+  last_time?: string
+  minutes_since_last?: number
+}
+
+export type InterventionReaction = {
+  institution: string
+  label: string
+  time: string
+  minutes_since: number
+  price_before?: number | null
+  price_at_event?: number | null
+  change_60m_before?: number | null
+  price_after_15m?: number
+  change_after_15m?: number | null
+  price_after_30m?: number
+  change_after_30m?: number | null
+  price_after_60m?: number
+  change_after_60m?: number | null
+  samples_after: number
+  change_since_event?: number | null
+}
+
+export type MoveMagnitude = {
+  label: "flat" | "normal" | "strong" | "exceptional"
+  percentile_vs_7d: number
+  windows: number
+}
+
+export type MarketReading = {
+  observations: {
+    now_local: string
+    bank_supply_today: {
+      total_interventions: number
+      by_institution: Record<string, BankSupplyInstitution>
+    }
+    interventions_today?: InterventionReaction[]
+    reference_price_now?: number
+  }
+  derived_signals: {
+    ves_direction: "weakening" | "strengthening" | "stable" | null
+    momentum_1h: "up" | "down" | "flat" | null
+    bank_supply_absence_is_meaningful: boolean | null
+    bank_intervention_effect: InterventionEffect | null
+    fx_supply_pressure: FxSupplyPressure | null
+    fx_supply_pressure_basis: string[] | null
+    supply_market_scenario: SupplyMarketScenario
+    move_magnitude: Partial<Record<"1h" | "24h", MoveMagnitude>> | null
+    effect_evaluated_on?: { institution: string; time: string }
+  }
+}
+
 export type AiStreamMetrics = FxSupplyBundle & {
   snapshot: P2PMarketSnapshot
   market_state: P2PMarketState
   risk_level: P2PRiskLevel
   fx_event_context: Record<string, unknown> | null
+  market_reading?: MarketReading | null
 }
 
 export type AiStreamDone = {
