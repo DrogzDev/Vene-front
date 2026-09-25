@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react"
+import type { MouseEvent as ReactMouseEvent } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
+import { Sun } from "lucide-react"
 
 import AppShell from "../components/shell/AppShell"
 import DotsAnimatedIcon from "../components/icons/DotsAnimatedIcon"
@@ -9,6 +11,7 @@ import DotsAnimatedIcon from "../components/icons/DotsAnimatedIcon"
 import logoDark from "../assets/branding/generated/header-v2-dark.png"
 import logoLight from "../assets/branding/generated/header-v2-light.png"
 import { useTheme } from "../theme/useTheme"
+import { toggleThemeWithCircleReveal } from "../theme/viewTransition"
 import AlertsBell, { RoundAction } from "../components/shell/AlertsBell"
 import AlertsModal from "../components/AlertsModal"
 import { useBankAlerts } from "../components/home/useBankAlerts"
@@ -19,9 +22,10 @@ import { CONVERTER_MODES } from "../components/converterModes"
 import type { ConverterMode } from "../components/converterModes"
 import { useHomeMarket } from "../components/home/useHomeMarket"
 import { Skeleton } from "../components/priceHistory/states"
+import { JellyTabs } from "../components/ui/JellyTabs"
 import { ListCard, ListRow } from "../components/ui/ListCard"
 import Sparkline from "../components/ui/Sparkline"
-import { ChipScroller, Notice } from "../components/ui/primitives"
+import { Notice } from "../components/ui/primitives"
 import { TONE_HEX, TONE_TEXT, formatSignedPercent, toneOf } from "../components/ui/tone"
 import { formatBs, formatDate } from "../utils/format"
 
@@ -57,7 +61,11 @@ export default function ConvertPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const bank = useBankAlerts()
-  const { resolved: theme } = useTheme()
+  const { resolved: theme, setPreference: setThemePreference } = useTheme()
+
+  function toggleTheme(event: ReactMouseEvent<HTMLButtonElement>) {
+    toggleThemeWithCircleReveal({ x: event.clientX, y: event.clientY }, theme, setThemePreference)
+  }
 
   // Tocar una notificación de alerta bancaria abre las alertas aquí.
   useEffect(() => {
@@ -98,14 +106,9 @@ export default function ConvertPage() {
       </div>
 
       <div className="space-y-3">
-        <ChipScroller
-          options={CONVERTER_MODES}
-          value={mode}
-          onChange={setMode}
-          label="Tasa"
-          size="sm"
-          className="justify-center"
-        />
+        <div className="flex justify-center">
+          <JellyTabs options={CONVERTER_MODES} value={mode} onChange={setMode} label="Tasa" size="sm" />
+        </div>
 
         {market.loading ? (
           <div role="status" aria-label="Cargando tasas" className="space-y-3">
@@ -182,9 +185,8 @@ export default function ConvertPage() {
           </>
         )}
 
-        {/* Alertas bancarias y Más, juntos bajo las tasas: la barra
-            inferior queda con tres destinos simétricos. */}
-        <nav aria-label="Alertas y ajustes" className="flex justify-center gap-10 pt-2">
+        {/* Alertas bancarias, Más y el tema, juntos bajo las tasas. */}
+        <nav aria-label="Alertas y ajustes" className="flex justify-center gap-8 pt-2">
           <AlertsBell
             unreadCount={bank.unreadCount}
             alertsEnabled={bank.alertsEnabled}
@@ -192,6 +194,13 @@ export default function ConvertPage() {
           />
           <RoundAction label="Más" ariaLabel="Más: ajustes y preferencias" onClick={() => navigate("/mas")}>
             <DotsAnimatedIcon className="h-[22px] w-[22px]" onceKey="convert-more" delay={0.3} />
+          </RoundAction>
+          <RoundAction
+            label="Tema"
+            ariaLabel={theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro"}
+            onClick={toggleTheme}
+          >
+            <Sun className="h-[22px] w-[22px]" strokeWidth={2} />
           </RoundAction>
         </nav>
       </div>

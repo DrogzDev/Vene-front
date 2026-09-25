@@ -355,3 +355,30 @@ a {
     transform: translate3d(190%, 0, 0);
   }
 }
+
+/* =========================================================
+   CAMBIO DE TEMA: REVELACIÓN CIRCULAR
+   ========================================================= */
+
+/* El navegador cruza old/new root con un fundido por defecto; se apaga
+   para que el único movimiento visible sea el circle() que anima
+   src/theme/viewTransition.ts sobre ::view-transition-new(root). El
+   root "viejo" queda quieto y opaco debajo mientras el círculo del
+   "nuevo" tema crece encima, desde el punto donde se tocó el botón. */
+::view-transition-group(root) {
+  animation-duration: 550ms;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+}

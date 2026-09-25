@@ -1,0 +1,81 @@
+/*
+ * Excepción puntual al convenio de solo-Tailwind del proyecto, igual que
+ * SlingButton.css: el "jelly swell" necesita custom properties por
+ * instancia (medidas en tiempo real) además del transform que ya aplica
+ * Framer Motion en línea sobre cada chip.
+ */
+.jelly-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--jt-gap, 6px);
+  /* --jt-pad-* ya reserva el espacio que necesita el swell (JS, en
+     tiempo real); el sumando fijo es aparte, solo para el halo del
+     glow (blur 16px + spread 2px) — si no, overflow-x: auto (que por
+     spec también clippea el eje Y) le corta el difuminado en línea
+     recta contra el borde del contenedor y se ve "cuadrado". */
+  padding: calc(var(--jt-pad-y, 6px) + 18px) calc(var(--jt-pad-x, 16px) + 18px);
+  margin: -18px;
+  /* En teléfonos angostos las 5 tasas no siempre caben: se desplaza en
+     vez de envolver o recortarse (mismo patrón que .scroll-x). */
+  max-width: calc(100% + 36px);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.jelly-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.jelly-tabs__chip {
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  border: 0;
+  border-radius: var(--jt-radius, 9999px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--jt-h, 32px);
+  padding: 0 var(--jt-px, 14px);
+  background: rgb(var(--c-surface-2));
+  color: rgb(var(--c-text-secondary));
+  font-size: var(--jt-font, 12px);
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  outline: none;
+  transform-origin: 50% 50%;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 200ms ease, color 200ms ease, box-shadow 200ms ease;
+}
+
+.jelly-tabs__chip:focus-visible {
+  box-shadow: 0 0 0 2px rgb(var(--c-gold) / 0.5);
+}
+
+/* El brillo dorado del chip activo: el pedido explícito de mantener. */
+.jelly-tabs__chip[data-on="true"] {
+  cursor: default;
+  background: rgb(var(--c-gold));
+  color: rgb(var(--c-on-gold));
+  box-shadow:
+    0 0 0 1px rgb(var(--c-gold) / 0.55),
+    0 0 16px 2px rgb(var(--c-gold) / 0.4);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .jelly-tabs__chip[data-on="false"]:hover {
+    background: rgb(var(--c-surface-3));
+    color: rgb(var(--c-text-soft));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jelly-tabs__chip {
+    transition: background-color 120ms ease, color 120ms ease;
+  }
+}

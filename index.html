@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/icon.svg" />
@@ -17,21 +17,24 @@
     />
 
     <!-- Pinta la barra de estado del mismo color que el fondo. -->
-    <meta name="theme-color" content="#050607" />
-    <meta name="color-scheme" content="dark light" />
+    <meta name="theme-color" content="#F6F6F4" />
+    <meta name="color-scheme" content="light dark" />
 
     <!--
       Tema antes del primer pintado, para que no parpadee: preferencia
       guardada (src/theme/theme.ts, clave "vc-theme") o, si no hay, la del
-      sistema. Dark es el tema por defecto.
+      sistema. Solo se resuelve oscuro cuando el sistema lo declara
+      explícitamente (prefers-color-scheme: dark) — sin eso (WebViews que
+      no exponen la preferencia, o un sistema sin declarar ninguna) el
+      tema por defecto es claro, nunca negro por opinión del código.
     -->
     <script>
       (function () {
-        var theme = "dark"
+        var theme = "light"
         try {
           var stored = localStorage.getItem("vc-theme")
           if (stored === "dark" || stored === "light") theme = stored
-          else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light"
+          else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) theme = "dark"
         } catch (e) {}
         document.documentElement.setAttribute("data-theme", theme)
         var meta = document.querySelector('meta[name="theme-color"]')

@@ -36,9 +36,10 @@ function readPreference(): ThemePreference {
 }
 
 function systemTheme(): ResolvedTheme {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "dark"
-  // Sin preferencia declarada, el tema principal es el oscuro.
-  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return "light"
+  // Solo oscuro si el sistema lo declara explícitamente; sin preferencia
+  // detectable (algunos WebView no la exponen), el tema es claro.
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 }
 
 let preference: ThemePreference = readPreference()

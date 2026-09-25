@@ -1,9 +1,9 @@
-import type { ReactNode } from "react"
+import type { MouseEvent, ReactNode } from "react"
 
 import BellAnimatedIcon from "../icons/BellAnimatedIcon"
 
 /**
- * Acción redonda con etiqueta debajo (Convertir: Alertas y Más).
+ * Acción redonda con etiqueta debajo (Convertir: Alertas, Más y Tema).
  */
 export function RoundAction({
   label,
@@ -15,7 +15,9 @@ export function RoundAction({
 }: {
   label: string
   ariaLabel?: string
-  onClick: () => void
+  /** Recibe el evento: el toggle de tema necesita el punto del click
+   *  para la revelación circular (ver viewTransition.ts). */
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void
   /** Estado activado (alertas encendidas): borde y color positivos. */
   active?: boolean
   badge?: number

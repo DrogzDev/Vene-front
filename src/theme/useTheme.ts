@@ -5,7 +5,7 @@ import { getThemePreference, resolveTheme, setThemePreference, subscribeTheme } 
 /** Tema actual (preferencia y tema resuelto) y el setter para el selector. */
 export function useTheme() {
   const preference = useSyncExternalStore(subscribeTheme, getThemePreference, getThemePreference)
-  const resolved = useSyncExternalStore(subscribeTheme, () => resolveTheme(), () => "dark" as const)
+  const resolved = useSyncExternalStore(subscribeTheme, () => resolveTheme(), () => "light" as const)
 
   return { preference, resolved, setPreference: setThemePreference }
 }
