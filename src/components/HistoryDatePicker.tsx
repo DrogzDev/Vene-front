@@ -98,8 +98,8 @@ export default function HistoryDatePicker({
           disabled={loading}
           aria-label={selectedDate ? `Fecha: ${formatSelectedLabel(selectedDate)}` : "Ver tasas de otra fecha"}
           title="Ver tasas de otra fecha"
-          className={`flex h-11 w-11 items-center justify-center rounded-full outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-95 disabled:opacity-50 ${
-            selectedDate ? "bg-brand/15 text-brand-light" : "text-ink-muted hover:bg-surface hover:text-ink"
+          className={`flex h-11 w-11 items-center justify-center rounded-full outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-gold/40 active:scale-95 disabled:opacity-50 ${
+            selectedDate ? "bg-gold/[0.12] text-gold-ink" : "text-ink-muted hover:bg-surface hover:text-ink"
           }`}
         >
           <CalendarDays className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />

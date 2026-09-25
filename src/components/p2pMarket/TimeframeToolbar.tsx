@@ -51,9 +51,9 @@ export default function TimeframeToolbar({ timeframes, value, onChange }: Props)
             disabled={!timeframe.available}
             title={timeframe.available ? undefined : (timeframe.reason ?? undefined)}
             onClick={() => timeframe.available && onChange(timeframe.key)}
-            className={`h-9 min-w-[42px] shrink-0 snap-start rounded-[10px] px-3 text-[13px] font-semibold tabular-nums outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-95 ${
+            className={`h-9 min-w-[42px] shrink-0 snap-start rounded-[10px] px-3 text-[13px] font-semibold tabular-nums outline-none transition duration-150 focus-visible:ring-2 focus-visible:ring-gold/40 active:scale-95 ${
               isActive
-                ? "bg-brand/15 text-brand-light ring-1 ring-inset ring-brand/40"
+                ? "bg-gold/[0.12] text-gold-ink ring-1 ring-inset ring-gold/30"
                 : timeframe.available
                   ? "text-ink-muted hover:bg-surface-raised hover:text-ink-soft"
                   : "cursor-not-allowed text-ink-faint/60"

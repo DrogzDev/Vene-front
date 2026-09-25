@@ -5,8 +5,9 @@ import type {
 } from "../../types/prices"
 import { formatBs } from "../../utils/format"
 import ResponsiveSheet from "../shared/ResponsiveSheet"
-import { AlertIcon, RefreshIcon, SparkleIcon } from "./icons"
+import { AlertIcon, RefreshIcon } from "./icons"
 import { COLORS, priceChangeColor } from "./theme"
+import BrainAnimatedIcon from "../icons/BrainAnimatedIcon"
 
 const VOLATILITY_LABELS: Record<MarketVolatility, string> = {
   low: "Baja",
@@ -105,7 +106,7 @@ export default function AiAnalysisPanel({
       open={open}
       onClose={onClose}
       ariaLabel="Análisis del mercado"
-      icon={<SparkleIcon className="h-4 w-4 shrink-0 text-brand-light" />}
+      icon={<BrainAnimatedIcon className="h-4 w-4 shrink-0 text-gold" />}
       title="Análisis del mercado"
       subtitle={
         context ? `${context.source_label} · generado con los datos del período` : undefined

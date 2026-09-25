@@ -64,7 +64,7 @@ export default function RapidDropAlertCard({ alert, snapshot, onViewAnalysis }: 
           <button
             type="button"
             onClick={onViewAnalysis}
-            className="mt-3 text-xs font-semibold text-brand-light outline-none transition hover:text-brand-light focus-visible:underline"
+            className="mt-3 text-xs font-semibold text-gold-ink outline-none transition hover:text-gold focus-visible:underline"
           >
             Ver análisis
           </button>

@@ -3,7 +3,7 @@ import type { ElementType, ReactNode } from "react"
 import { ChevronDown, ChevronRight, Info, Minus, TrendingDown, TrendingUp } from "lucide-react"
 
 import { formatBs } from "../../utils/format"
-import { TONE_HEX, TONE_TEXT, formatSignedPercent, toneOf } from "./tone"
+import { TONE_HEX, TONE_TEXT, formatSignedPercent, tint, toneOf } from "./tone"
 import type { Tone } from "./tone"
 
 /*
@@ -41,15 +41,22 @@ export function SectionHeader({
   title,
   action,
   className = "",
+  size = "md",
 }: {
   title: string
   action?: ReactNode
   className?: string
+  /** "lg": títulos de sección de Inicio. */
+  size?: "md" | "lg"
 }) {
   return (
     <div className={`flex min-h-9 items-center justify-between gap-3 ${className}`}>
-      <h2 className="text-[15px] font-bold tracking-tight text-ink">{title}</h2>
-      {action && <div className="flex shrink-0 items-center gap-1">{action}</div>}
+      <h2
+        className={`min-w-0 truncate ${size === "lg" ? "shrink-0 text-[clamp(15px,4.6vw,18px)]" : "text-[15px]"} font-bold tracking-tight text-ink`}
+      >
+        {title}
+      </h2>
+      {action && <div className={`flex shrink-0 items-center ${size === "lg" ? "gap-0" : "gap-1"}`}>{action}</div>}
     </div>
   )
 }
@@ -69,7 +76,7 @@ export function SeeAllButton({ onClick, label = "Ver todo" }: { onClick: () => v
     <button
       type="button"
       onClick={onClick}
-      className="-mr-2 flex min-h-11 items-center gap-0.5 rounded-lg px-2 text-[13px] font-semibold text-brand-light outline-none transition-colors hover:text-brand focus-visible:ring-2 focus-visible:ring-brand/50"
+      className="-mr-2 flex min-h-11 items-center gap-0.5 rounded-lg px-2 text-[13px] font-medium text-ink-muted outline-none transition-colors duration-200 hover:text-ink focus-visible:ring-2 focus-visible:ring-gold/40"
     >
       {label}
       <ChevronRight className="h-4 w-4" aria-hidden />
@@ -126,7 +133,7 @@ export function TrendBadge({
       className={`inline-flex shrink-0 items-center gap-1 rounded-full font-bold tabular-nums ${
         size === "sm" ? "px-2 py-0.5 text-[12px]" : "px-2.5 py-1 text-[13px]"
       }`}
-      style={{ color, backgroundColor: `${color}1a` }}
+      style={{ color, backgroundColor: tint(color) }}
     >
       <Icon className={size === "sm" ? "h-3.5 w-3.5" : "h-4 w-4"} strokeWidth={2.4} aria-hidden />
       {formatSignedPercent(value)}
@@ -203,16 +210,16 @@ export function StatChip({
   icon,
 }: {
   children: ReactNode
-  /** Hex del tono; por defecto gris azulado. */
+  /** Color del tono (hex o variable CSS); por defecto gris neutro. */
   color?: string
   icon?: ReactNode
 }) {
-  const hex = color ?? "#8B98A8"
+  const hex = color ?? TONE_HEX.neutral
 
   return (
     <span
       className="inline-flex max-w-full items-center gap-1 truncate rounded-full px-2 py-0.5 text-[12px] font-semibold"
-      style={{ color: hex, backgroundColor: `${hex}1a` }}
+      style={{ color: hex, backgroundColor: tint(hex) }}
     >
       {icon}
       {children}

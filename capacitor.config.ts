@@ -34,7 +34,7 @@ const config: CapacitorConfig = {
     // pintó el primer fotograma, para no mostrar un WebView vacío.
     SplashScreen: {
       launchAutoHide: false,
-      backgroundColor: "#06080C",
+      backgroundColor: "#050607",
       // Recurso con el logo oficial (res/drawable/splash_brand.xml), no la
       // imagen de muestra de Capacitor.
       androidSplashResourceName: "splash_brand",

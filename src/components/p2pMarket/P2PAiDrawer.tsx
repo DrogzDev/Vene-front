@@ -19,12 +19,12 @@ import {
   ClockIcon,
   HistoryIcon,
   RefreshIcon,
-  SparkleIcon,
 } from "../priceHistory/icons"
 import { TrendBadge } from "../ui/primitives"
 import { TONE_TEXT, formatSignedPercent, toneOf } from "../ui/tone"
 import { VcIcon } from "../ui/VcIcon"
-import { RISK_LABELS, TREND_LABELS, VOLATILITY_LABELS, riskColor, trendColor } from "./theme"
+import { BOLIVAR_OUTLOOK_LABELS, TREND_LABELS, VOLATILITY_LABELS, bolivarOutlookColor, trendColor } from "./theme"
+import BrainAnimatedIcon from "../icons/BrainAnimatedIcon"
 
 type Props = {
   open: boolean
@@ -320,7 +320,7 @@ export default function P2PAiDrawer({
       open={open}
       onClose={onClose}
       ariaLabel="Análisis del mercado"
-      icon={<SparkleIcon className="h-4 w-4 shrink-0 text-brand-light" />}
+      icon={<BrainAnimatedIcon className="h-4 w-4 shrink-0 text-gold" />}
       title="Análisis del mercado"
       subtitle={
         snapshot
@@ -445,11 +445,16 @@ export default function P2PAiDrawer({
               <Metric label="Spread" value={signedPercent(snapshot.spread_percent_market)} />
             </div>
 
-            {analysis && (
+            {/* Qué significa para quien tiene bolívares (sustituye al
+                "nivel de riesgo" por volatilidad). */}
+            {analysis?.bolivar_outlook && (
               <div className="mt-2.5 flex items-center gap-2 rounded-xl bg-surface-raised px-3 py-2">
-                <span className="text-[11px] text-ink-muted">Nivel de riesgo</span>
-                <span className="text-[11px] font-semibold" style={{ color: riskColor(analysis.risk_level) }}>
-                  {RISK_LABELS[analysis.risk_level]}
+                <span className="text-[11px] text-ink-muted">Para tus bolívares</span>
+                <span
+                  className="text-[11px] font-semibold"
+                  style={{ color: bolivarOutlookColor(analysis.bolivar_outlook) }}
+                >
+                  {BOLIVAR_OUTLOOK_LABELS[analysis.bolivar_outlook]}
                 </span>
               </div>
             )}
@@ -497,9 +502,9 @@ export default function P2PAiDrawer({
             <button
               type="button"
               onClick={() => onAnalyze(false)}
-              className="inline-flex h-11 items-center gap-2 rounded-xl bg-brand/15 px-4 text-sm font-semibold text-brand-light outline-none transition duration-200 hover:bg-brand/25 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97]"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-gold/30 bg-gold/[0.12] px-4 text-sm font-semibold text-gold-ink outline-none transition duration-200 hover:bg-gold/20 focus-visible:ring-2 focus-visible:ring-gold/40 active:scale-[0.97]"
             >
-              <SparkleIcon className="h-4 w-4" />
+              <BrainAnimatedIcon className="h-4 w-4" />
               Analizar mercado
             </button>
 

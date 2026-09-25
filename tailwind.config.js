@@ -3,17 +3,22 @@
 /**
  * Tokens de diseño de VeneCambio.
  *
- * Hasta ahora `theme.extend` estaba vacío y cada pantalla escribía sus
- * propios hex en clases arbitrarias (`bg-[#12151c]`), lo que dejó tres
- * paletas distintas conviviendo. A partir de aquí los colores tienen
- * nombre y una sola definición.
+ * Los valores NO viven aquí: cada color apunta a una variable CSS de
+ * src/styles/tokens.css, que define los temas dark y light. Así una sola
+ * clase (`bg-surface`, `text-ink`) sirve para los dos temas y cambiar de
+ * tema no requiere tocar ningún componente.
  *
- * OJO: las gráficas leen los colores desde JavaScript, no desde
- * Tailwind (lightweight-charts recibe COLORS.up / down / grid). Por eso
- * estos valores están duplicados a propósito en
- * src/components/priceHistory/theme.ts y los dos archivos tienen que
- * moverse juntos.
+ * Los nombres históricos (bg, surface, hair, ink, up/down…) se conservan
+ * para no reescribir las pantallas; ahora apuntan a la paleta nueva:
+ * base monocroma (negro/gris/blanco) y la marca como acento.
+ *
+ * OJO: lightweight-charts recibe colores como strings, no clases. Esos
+ * valores siguen en src/components/priceHistory/theme.ts (COLORS/PRICE).
  */
+
+/** Color de tokens.css con soporte de opacidad (`bg-gold/15`). */
+const token = (name) => `rgb(var(--c-${name}) / <alpha-value>)`
+
 export default {
   content: [
     "./index.html",
@@ -22,63 +27,84 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Fondo grafito casi negro.
+        // Fondo negro carbón (dark) / blanco cálido (light).
         bg: {
-          DEFAULT: "#06080C",
-          soft: "#090C12",
+          DEFAULT: token("bg-primary"),
+          soft: token("bg-secondary"),
         },
-        // Superficies apiladas en azul grisáceo, no en cian: fondo muy
-        // oscuro → surface → raised → soft. Cada nivel se distingue del
-        // anterior; así no todas las cards tienen el mismo color.
+        // Superficies apiladas: fondo → surface → raised → soft.
         surface: {
-          DEFAULT: "#0E131B",
-          raised: "#141A24",
-          soft: "#1A212C",
+          DEFAULT: token("surface-1"),
+          raised: token("surface-2"),
+          soft: token("surface-3"),
         },
-        // Borde neutro muy tenue: separa sin dibujar cajas.
-        hair: "rgba(255, 255, 255, 0.06)",
-        hairbright: "rgba(255, 255, 255, 0.09)",
+        // Fondo de las acciones rápidas de Inicio.
+        tile: token("tile"),
+        // Bordes finos: separan sin dibujar cajas.
+        hair: token("border-subtle"),
+        hairbright: token("border-default"),
 
-        // Violeta: color de interacción y de marca.
-        brand: {
-          DEFAULT: "#7C5CFF",
-          bright: "#8D63FF",
-          light: "#9D72FF",
+        // Marca: SOLO como acento con función.
+        gold: {
+          DEFAULT: token("gold"),
+          soft: token("gold-soft"),
+          light: token("gold-light"),
+          ink: token("gold-ink"),
         },
+        "on-gold": token("on-gold"),
+        teal: {
+          DEFAULT: token("teal"),
+          dark: token("teal-dark"),
+        },
+
+        // TRANSICIÓN: `brand` era el violeta de la UI anterior. Inicio ya
+        // no lo usa; el resto de pantallas lo irá retirando. Mientras
+        // tanto apunta al dorado, nunca más al violeta.
+        brand: {
+          DEFAULT: token("gold"),
+          bright: token("gold"),
+          light: token("gold-ink"),
+        },
+
+        // CTA neutro: blanco/negro según el tema.
+        inverse: {
+          DEFAULT: token("inverse"),
+          fg: token("inverse-fg"),
+        },
+        nav: "var(--nav-bg)",
 
         // Semánticos financieros: éxito / error (estados, no precios).
-        up: "#20D6A0",
-        down: "#FF5D69",
+        up: token("positive"),
+        down: token("negative"),
 
         // Dirección del MOVIMIENTO del mercado, con la convención
         // financiera estándar: sube → verde, baja → rojo (también velas).
         // El impacto sobre el bolívar se muestra aparte, con su propio
         // indicador (ver BolivarStatus en el análisis IA).
-        rise: "#20D6A0",
-        fall: "#FF5D69",
-        info: "#3AA8FF",
-        warn: "#F0B429",
-        // Acento secundario (cyan/teal), para detalles puntuales.
-        accent: "#2DD4E6",
+        rise: token("positive"),
+        fall: token("negative"),
+        positive: token("positive"),
+        negative: token("negative"),
+        info: token("info"),
+        warn: token("warning"),
+        accent: token("teal"),
 
-        // Semántica por activo: teal para USDT/mercado, azul para BCV
-        // (información institucional). El violeta es la UI; el verde,
-        // solo lo positivo.
-        usdt: "#1FBF9F",
-        bcv: "#3AA8FF",
+        // Semántica por activo: teal para USDT, azul para BCV.
+        usdt: token("teal"),
+        bcv: token("info"),
 
-        // Texto en tres niveles de jerarquía.
+        // Texto en cuatro niveles de jerarquía.
         ink: {
-          DEFAULT: "#F5F7FA",
-          soft: "#C3CBD6",
-          muted: "#8E9AAA",
-          faint: "#5E6B7B",
+          DEFAULT: token("text-primary"),
+          soft: token("text-soft"),
+          muted: token("text-secondary"),
+          faint: token("text-muted"),
         },
       },
 
       borderRadius: {
-        card: "18px",
-        tile: "14px",
+        card: "22px",
+        tile: "16px",
         ctl: "12px",
       },
 
@@ -99,27 +125,13 @@ export default {
         nav: "64px",
       },
 
-      backgroundImage: {
-        // Fondo del hero de Inicio: un velo violeta casi imperceptible que
-        // nace y muere en transparente, sin bordes visibles. No es un glow.
-        hero: "linear-gradient(180deg, rgba(124, 92, 255, 0) 0%, rgba(124, 92, 255, 0.07) 30%, rgba(124, 92, 255, 0.03) 70%, rgba(124, 92, 255, 0) 100%)",
-      },
-
       boxShadow: {
-        card: "0 8px 24px rgba(0, 0, 0, 0.28)",
-        nav: "0 -6px 20px rgba(0, 0, 0, 0.35)",
+        card: "var(--shadow-card)",
+        nav: "var(--shadow-nav)",
+        cta: "var(--shadow-cta)",
 
-        // Halo violeta DESACTIVADO a petición del usuario.
-        //
-        // Era "0 10px 28px rgba(124, 92, 255, 0.35)" y lo llevaban la
-        // píldora activa, el indicador del segmented control, el
-        // timeframe seleccionado, el botón central de la navegación y el
-        // CTA de análisis. Alrededor del texto se leía como si las
-        // letras brillasen.
-        //
-        // Se deja el token, en vez de borrar la clase de los ocho
-        // archivos que la usan, para que reactivarlo sea cambiar esta
-        // línea y nada más.
+        // Sin halo de color alrededor de la marca (se leía como glow). Se
+        // conserva el token para no tocar las clases `shadow-brand`.
         brand: "none",
       },
     },

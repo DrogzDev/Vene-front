@@ -3,7 +3,7 @@ export type IndicatorKey = "ma7" | "ma25" | "ma99"
 const INDICATOR_OPTIONS: { key: IndicatorKey; label: string; color: string }[] = [
   { key: "ma7", label: "MA 7", color: "#38bdf8" },
   { key: "ma25", label: "MA 25", color: "#facc15" },
-  { key: "ma99", label: "MA 99", color: "#a78bfa" },
+  { key: "ma99", label: "MA 99", color: "#DCC9A6" },
 ]
 
 type Props = {

@@ -68,7 +68,7 @@ export default function MarketStatusCompact({ snapshot }: { snapshot: P2PMarketS
         onClose={() => setOpen(false)}
         title="Estado del mercado"
         subtitle="Lecturas calculadas con capturas reales"
-        icon={<Activity className="h-4 w-4 shrink-0 text-brand-light" aria-hidden />}
+        icon={<Activity className="h-4 w-4 shrink-0 text-gold" aria-hidden />}
       >
         <MarketStatusPanel snapshot={snapshot} embedded />
       </ResponsiveSheet>

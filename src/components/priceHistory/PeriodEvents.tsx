@@ -3,7 +3,7 @@ import { useRef } from "react"
 import type { PriceChartPoint, PriceChartRange, PriceChartSummary, PriceSource } from "../../types/prices"
 import { useRevealOnce } from "../../motion/useRevealOnce"
 import { formatBs } from "../../utils/format"
-import { SectionHeader } from "../ui/primitives"
+import { Disclosure } from "../ui/primitives"
 import { TONE_HEX, TONE_TEXT, formatSignedPercent } from "../ui/tone"
 import { VcIcon } from "../ui/VcIcon"
 
@@ -129,7 +129,7 @@ export default function PeriodEvents({
     events.push({
       key: "move",
       at: move.at,
-      color: "#9D72FF",
+      color: "#C9A86A",
       title: range === "24h" ? "Mayor salto entre capturas" : "Mayor salto entre cierres",
       detail: `${formatBs(move.from)} → ${formatBs(move.to)}`,
       value: formatSignedPercent(move.percent),
@@ -141,13 +141,12 @@ export default function PeriodEvents({
   events.sort((a, b) => (b.at ?? "").localeCompare(a.at ?? ""))
 
   return (
-    <section aria-label="Eventos del período">
-      <SectionHeader
-        title="Eventos del período"
-        action={<VcIcon name="period-events" className="h-[18px] w-[18px] text-ink-faint" />}
-      />
-
-      <ol ref={listRef} className="relative mt-1 rounded-card border border-hair bg-surface px-3.5 py-1">
+    <Disclosure
+      title="Eventos del período"
+      subtitle={`${events.length} evento${events.length === 1 ? "" : "s"}`}
+      icon={<VcIcon name="period-events" className="h-[18px] w-[18px] shrink-0 text-ink-muted" />}
+    >
+      <ol ref={listRef} className="relative rounded-card border border-hair bg-surface px-3.5 py-1">
         {/* Raíl vertical que une los puntos. */}
         <span aria-hidden className="absolute bottom-5 left-[21px] top-5 w-px bg-hairbright" />
 
@@ -169,6 +168,6 @@ export default function PeriodEvents({
           </li>
         ))}
       </ol>
-    </section>
+    </Disclosure>
   )
 }

@@ -1,3 +1,5 @@
+@import './styles/tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -26,7 +28,7 @@ html {
   /* Evita que iOS/Android reescalen el texto en rotación y rompan la
      jerarquía tipográfica. */
   -webkit-text-size-adjust: 100%;
-  background-color: #06080c;
+  background-color: var(--bg-primary);
 
   /* También en html, no solo en body.
      Si la página desborda en horizontal, el WebView de Android se aleja
@@ -41,7 +43,10 @@ body {
   margin: 0;
   /* La familia sale de los tokens de Tailwind (theme.fontFamily.sans),
      así que aquí solo se afina el renderizado. */
-  @apply bg-bg font-sans text-ink antialiased;
+  /* Sin fondo propio: el color lo pinta <html>. Así la luz ambiental de
+     Inicio (.ambient-light, z-index -1) queda entre el fondo y el
+     contenido; con fondo en body quedaría tapada. */
+  @apply font-sans text-ink antialiased;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* Ninguna pantalla debe poder desplazarse en horizontal. */
@@ -51,6 +56,29 @@ body {
 /* Las superficies táctiles no deben mostrar el flash azul de Android. */
 * {
   -webkit-tap-highlight-color: transparent;
+}
+
+/* App, no página web: nada de arrastrar texto ni imágenes para
+   seleccionarlos/soltarlos, ni el menú de "Guardar imagen" de iOS al
+   mantener presionado. Los campos donde sí se escribe (monto, tasa
+   personalizada) recuperan la selección normal, si no no se podría ni
+   corregir lo tecleado. */
+body {
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  user-select: text;
+}
+
+img,
+a {
+  -webkit-user-drag: none;
 }
 
 @keyframes fadeUp {
@@ -196,4 +224,134 @@ body {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* =========================================================
+   LUZ AMBIENTAL DE INICIO
+   ========================================================= */
+
+/* Dos focos de luz difusa que recorren el fondo muy despacio. Neutros
+   (gris claro en dark, sombra gris en light), detrás de todas las cards:
+   solo se nota en los huecos y alrededor de la cabecera.
+
+   Solo transform: el navegador lo compone en GPU sin repintar. Con
+   prefers-reduced-motion la red de seguridad de arriba deja la luz
+   quieta en su primer fotograma. */
+.ambient-light {
+  position: fixed;
+  inset: 0;
+  /* Por debajo del contenido sin crear un contexto de apilamiento en la
+     pantalla: así las hojas y modales `fixed` siguen por encima del nav. */
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* Halo fijo arriba, bajo la cabecera: da profundidad al negro aunque
+     los focos móviles estén lejos. */
+  background: radial-gradient(
+    120% 55% at 50% -8%,
+    rgb(var(--ambient-color) / var(--ambient-top)),
+    rgb(var(--ambient-color) / 0) 70%
+  );
+}
+
+.ambient-light::before,
+.ambient-light::after {
+  content: "";
+  position: absolute;
+  width: 110vmax;
+  height: 110vmax;
+  border-radius: 9999px;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--ambient-color) / var(--ambient-strength)),
+    rgb(var(--ambient-color) / 0)
+  );
+  will-change: transform;
+}
+
+.ambient-light::before {
+  top: -55vmax;
+  left: -35vmax;
+  animation: ambientDriftA 18s ease-in-out infinite alternate;
+}
+
+.ambient-light::after {
+  top: 20vmax;
+  left: 5vmax;
+  opacity: 0.6;
+  animation: ambientDriftB 23s ease-in-out infinite alternate;
+}
+
+@keyframes ambientDriftA {
+  from {
+    transform: translate3d(-12vmax, 0, 0);
+  }
+  to {
+    transform: translate3d(38vmax, 14vmax, 0);
+  }
+}
+
+@keyframes ambientDriftB {
+  from {
+    transform: translate3d(30vmax, 10vmax, 0);
+  }
+  to {
+    transform: translate3d(-24vmax, -8vmax, 0);
+  }
+}
+
+/* =========================================================
+   SOMBREADO DE LA BARRA INFERIOR
+   ========================================================= */
+
+/* El mismo recurso que la luz de Inicio, dentro de la barra: un foco gris
+   difuso que la recorre despacio de un lado a otro, y un brillo fino en
+   el borde superior. Capa propia con overflow hidden (la barra no puede
+   recortar: el Convertir sobresale por arriba). Solo transform; con
+   prefers-reduced-motion queda quieto. */
+.nav-sheen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.nav-sheen::before {
+  content: "";
+  position: absolute;
+  top: -60%;
+  left: -30%;
+  width: 70%;
+  height: 220%;
+  border-radius: 9999px;
+  background: radial-gradient(
+    closest-side,
+    rgb(var(--ambient-color) / var(--nav-sheen)),
+    rgb(var(--ambient-color) / 0)
+  );
+  animation: navSheen 14s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* Brillo fino arriba: separa la barra del contenido sin una línea dura. */
+.nav-sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgb(var(--ambient-color) / 0),
+    rgb(var(--ambient-color) / calc(var(--nav-sheen) * 2.2)),
+    rgb(var(--ambient-color) / 0)
+  );
+}
+
+@keyframes navSheen {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(190%, 0, 0);
+  }
 }

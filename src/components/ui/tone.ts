@@ -18,10 +18,22 @@ export const TONE_TEXT: Record<Tone, string> = {
   neutral: "text-ink-muted",
 }
 
+/**
+ * Color de cada tono como variable CSS (sigue el tema activo). Solo para
+ * SVG y estilos en línea; lightweight-charts usa PRICE (hex).
+ */
 export const TONE_HEX: Record<Tone, string> = {
-  up: "#20D6A0",
-  down: "#FF5D69",
-  neutral: "#8B98A8",
+  up: "rgb(var(--c-positive))",
+  down: "rgb(var(--c-negative))",
+  neutral: "rgb(var(--c-text-secondary))",
+}
+
+/**
+ * Fondo suave del mismo color (badges, chips). color-mix funciona igual
+ * con un hex que con una variable CSS, al contrario que concatenar "1a".
+ */
+export function tint(color: string, percent = 12) {
+  return `color-mix(in srgb, ${color} ${percent}%, transparent)`
 }
 
 /** "+0,91%" / "−1,20%" con signo tipográfico real. */

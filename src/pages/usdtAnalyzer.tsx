@@ -47,7 +47,6 @@ import { ChipScroller, Disclosure, IconButton, MetricCell, MetricGrid, Notice } 
 import { formatSignedPercent, toneOf } from "../components/ui/tone"
 import AppShell from "../components/shell/AppShell"
 import AppHeader from "../components/shell/AppHeader"
-import { VcIcon } from "../components/ui/VcIcon"
 import UsdtAnalyzerPro from "./usdtAnalyzerPro"
 
 const RANGE_OPTIONS: { key: P2PHistoryRange; label: string }[] = [
@@ -240,13 +239,10 @@ export default function UsdtAnalyzerPage() {
   }
 
   return (
-    <AppShell width={viewMode === "pro" ? "wide" : "app"}>
+    <AppShell ambient width={viewMode === "pro" ? "wide" : "app"}>
       <AppHeader
         variant="tab"
-        icon={<VcIcon name="market-candles" className="h-[18px] w-[18px]" />}
-        accent="#1FBF9F"
-        title="USDT / VES"
-        subtitle="Mercado P2P · Binance"
+        title="Mercado USDT / VES"
         // Simple/Pro vive en la cabecera: ahorra una fila entera sobre el
         // gráfico sin quitar ninguna de las dos vistas.
         actions={<ViewModeToggle compact value={viewMode} onChange={handleViewModeChange} className="w-[136px]" />}
@@ -548,7 +544,7 @@ function UsdtAnalyzerSimple({ snapshot }: { snapshot: P2PMarketStatusResponse | 
                               ? COLORS.surfaceSoft
                               : topHourKeys.has(stat.hour)
                                 ? COLORS.up
-                                : "#2B3A52"
+                                : "#3A3F46"
                           }
                         />
                       ))}

@@ -15,8 +15,12 @@ import { formatBs } from "../../utils/format"
 import { formatFullTime, formatReadoutTime, formatTickMark } from "../priceHistory/chartFormat"
 import { COLORS } from "./theme"
 
-const SELL_COLOR = "#a3e635"
-const BUY_COLOR = "#38bdf8"
+// Separador de paneles: gris translúcido, legible en tema claro y oscuro
+// (el canvas no entiende variables CSS).
+const CHART_SEPARATOR = "rgba(128, 132, 138, 0.18)"
+
+const SELL_COLOR = "#C9A86A"
+const BUY_COLOR = "#10C7B0"
 
 type Readout = {
   time: number
@@ -114,7 +118,7 @@ export default function P2PDualLineChart({
           'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif',
         fontSize: 11,
         attributionLogo: false,
-        panes: { separatorColor: COLORS.borderSoft, separatorHoverColor: "rgba(255,255,255,0.06)" },
+        panes: { separatorColor: CHART_SEPARATOR, separatorHoverColor: "rgba(255,255,255,0.06)" },
       },
       grid: {
         vertLines: { visible: false },

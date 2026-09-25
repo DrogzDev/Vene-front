@@ -1,4 +1,5 @@
 import type { PriceSource } from "../../types/prices"
+import { CurrencyIcon } from "../ui/VcIcon"
 import { SOURCE_OPTIONS } from "./theme"
 
 type Props = {
@@ -18,7 +19,7 @@ export default function SourceChips({ value, onChange }: Props) {
     <div
       role="radiogroup"
       aria-label="Fuente del precio"
-      className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-0.5"
+      className="no-scrollbar -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-0.5 [justify-content:safe_center]"
     >
       {SOURCE_OPTIONS.map((option) => {
         const isActive = option.key === value
@@ -30,7 +31,7 @@ export default function SourceChips({ value, onChange }: Props) {
             role="radio"
             aria-checked={isActive}
             onClick={() => onChange(option.key)}
-            className={`inline-flex h-10 shrink-0 snap-start items-center gap-2 rounded-full border px-4 text-[13px] font-semibold tracking-tight outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97] ${
+            className={`inline-flex h-10 shrink-0 snap-start items-center gap-2 rounded-full border px-3 text-[13px] font-semibold tracking-tight outline-none transition duration-200 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97] ${
               isActive
                 ? "border-transparent text-white"
                 : "border-hair bg-surface text-ink-muted hover:bg-surface-raised hover:text-ink-soft"
@@ -45,13 +46,9 @@ export default function SourceChips({ value, onChange }: Props) {
                 : undefined
             }
           >
-            <span
-              aria-hidden
-              className="h-1.5 w-1.5 rounded-full transition-opacity duration-200"
-              style={{
-                backgroundColor: option.color,
-                opacity: isActive ? 1 : 0.45,
-              }}
+            <CurrencyIcon
+              name={option.key}
+              className={`h-5 w-5 shrink-0 transition-opacity duration-200 ${isActive ? "opacity-100" : "opacity-60"}`}
             />
             {option.label}
           </button>

@@ -1,0 +1,145 @@
+/*
+ * Design tokens de VeneCambio.
+ *
+ * Una sola definición de color para toda la app, con dos temas:
+ * - Dark (el principal): negro carbón, superficies gris muy oscuro,
+ *   texto blanco y gris. Es también el valor por defecto en :root.
+ * - Light: blanco y gris cálido, texto casi negro.
+ *
+ * El dorado y el teal de la marca son ACENTOS con función (gráfica
+ * principal, acción principal, estados activos, positivos), no el color
+ * de la interfaz.
+ *
+ * Los colores se guardan como canales RGB ("13 16 20") para que Tailwind
+ * pueda aplicar opacidad (`bg-gold/15`). Para CSS o estilos en línea se
+ * exponen además como color completo: var(--surface-1), var(--brand-gold)…
+ *
+ * El tema lo fija src/theme/theme.ts con data-theme en <html> (y un
+ * script en index.html antes del primer pintado, para que no parpadee).
+ */
+
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-bg-primary: 5 6 7;
+  --c-bg-secondary: 9 11 14;
+  --c-surface-1: 13 16 20;
+  --c-surface-2: 17 21 26;
+  --c-surface-3: 23 27 32;
+  /* Acciones rápidas: gris un punto más claro que las cards. */
+  --c-tile: 17 21 26;
+
+  --c-border-subtle: 32 37 43;
+  --c-border-default: 41 47 54;
+
+  --c-text-primary: 247 247 245;
+  --c-text-soft: 211 214 218;
+  --c-text-secondary: 160 166 174;
+  --c-text-muted: 105 113 124;
+
+  --c-gold: 201 168 106;
+  --c-gold-soft: 220 201 166;
+  --c-gold-light: 239 226 200;
+  /* Texto dorado sobre superficie (estado activo): legible en cada tema. */
+  --c-gold-ink: 220 201 166;
+  --c-on-gold: 9 11 14;
+
+  --c-teal: 16 199 176;
+  --c-teal-dark: 8 127 115;
+
+  --c-positive: 20 207 168;
+  --c-negative: 255 91 101;
+  --c-warning: 224 180 95;
+  /* Identificador del BCV (información institucional). */
+  --c-info: 58 168 255;
+
+  /* CTA neutro estilo "Nike": blanco sobre negro / negro sobre blanco. */
+  --c-inverse: 247 247 245;
+  --c-inverse-fg: 5 6 7;
+
+  /* Barra inferior: negro NEUTRO (sin el matiz azul de #090B0E). */
+  --c-nav: 10 10 10;
+  --nav-bg: rgb(var(--c-nav) / 0.94);
+  /* Sombreado gris que recorre la barra (ver .nav-sheen). */
+  --nav-sheen: 0.1;
+  --shadow-card: 0 8px 24px rgb(0 0 0 / 0.28);
+  --shadow-nav: 0 -6px 20px rgb(0 0 0 / 0.35);
+  --shadow-cta: 0 6px 16px rgb(0 0 0 / 0.45);
+
+  /* Luz ambiental del fondo de Inicio (ver .ambient-light). */
+  --ambient-color: 216 220 224;
+  --ambient-strength: 0.11;
+  /* Halo fijo en la parte superior: la "sombra gris" sobre el negro. */
+  --ambient-top: 0.075;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --c-bg-primary: 246 246 244;
+  --c-bg-secondary: 250 250 248;
+  --c-surface-1: 255 255 255;
+  --c-surface-2: 247 247 245;
+  --c-surface-3: 239 239 236;
+  --c-tile: 255 255 255;
+
+  --c-border-subtle: 232 233 234;
+  --c-border-default: 218 221 224;
+
+  --c-text-primary: 17 19 24;
+  --c-text-soft: 58 64 73;
+  --c-text-secondary: 98 106 117;
+  --c-text-muted: 146 152 161;
+
+  --c-gold: 196 154 77;
+  --c-gold-soft: 231 212 171;
+  --c-gold-light: 239 226 200;
+  --c-gold-ink: 156 122 54;
+  --c-on-gold: 21 21 21;
+
+  --c-teal: 13 183 162;
+  --c-teal-dark: 8 126 114;
+
+  --c-positive: 0 169 131;
+  --c-negative: 217 67 78;
+  --c-warning: 176 128 36;
+  --c-info: 43 127 217;
+
+  --c-inverse: 17 19 24;
+  --c-inverse-fg: 255 255 255;
+
+  --c-nav: 255 255 255;
+  --nav-bg: rgb(var(--c-nav) / 0.94);
+  --nav-sheen: 0.09;
+  --shadow-card: 0 6px 18px rgb(17 19 24 / 0.06);
+  --shadow-nav: 0 -4px 16px rgb(17 19 24 / 0.05);
+  --shadow-cta: 0 6px 16px rgb(17 19 24 / 0.16);
+
+  --ambient-color: 138 144 153;
+  --ambient-strength: 0.1;
+  --ambient-top: 0.07;
+}
+
+/* Alias con los nombres del sistema de diseño, como color completo. */
+:root {
+  --bg-primary: rgb(var(--c-bg-primary));
+  --bg-secondary: rgb(var(--c-bg-secondary));
+  --surface-1: rgb(var(--c-surface-1));
+  --surface-2: rgb(var(--c-surface-2));
+  --surface-3: rgb(var(--c-surface-3));
+  --border-subtle: rgb(var(--c-border-subtle));
+  --border-default: rgb(var(--c-border-default));
+  --text-primary: rgb(var(--c-text-primary));
+  --text-secondary: rgb(var(--c-text-secondary));
+  --text-muted: rgb(var(--c-text-muted));
+  --brand-gold: rgb(var(--c-gold));
+  --brand-gold-soft: rgb(var(--c-gold-soft));
+  --brand-gold-light: rgb(var(--c-gold-light));
+  --brand-teal: rgb(var(--c-teal));
+  --brand-teal-dark: rgb(var(--c-teal-dark));
+  --brand-teal-soft: rgb(var(--c-teal) / 0.12);
+  --positive: rgb(var(--c-positive));
+  --negative: rgb(var(--c-negative));
+  --warning: rgb(var(--c-warning));
+}

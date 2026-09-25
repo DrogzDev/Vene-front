@@ -1,6 +1,7 @@
 import type { P2PMarketSnapshot } from "../../types/prices"
 import { formatBs } from "../../utils/format"
 import { TREND_LABELS, VOLATILITY_LABELS, trendColor } from "./theme"
+import { TONE_HEX } from "../ui/tone"
 
 type Props = {
   snapshot: P2PMarketSnapshot
@@ -18,7 +19,7 @@ function Row({
   tone?: string
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 py-2.5">
+    <div className="flex items-center justify-between gap-3 py-1.5">
       <span className="text-[12px] text-ink-muted">{label}</span>
       <span className="text-[14px] font-bold tabular-nums" style={{ color: tone }}>
         {value}
@@ -49,17 +50,17 @@ export default function MarketStatusPanel({ snapshot, embedded = false }: Props)
         <Row
           label="Momentum 1H"
           value={momentum1h != null ? `${momentum1h >= 0 ? "+" : ""}${momentum1h.toFixed(2)}%` : "—"}
-          tone={momentum1h != null ? (momentum1h >= 0 ? "#20D6A0" : "#FF5D69") : "#d7dbe3"}
+          tone={momentum1h != null ? (momentum1h >= 0 ? TONE_HEX.up : TONE_HEX.down) : TONE_HEX.neutral}
         />
         <Row
           label="Volatilidad"
           value={VOLATILITY_LABELS[snapshot.volatility]}
-          tone="#F5F7FB"
+          tone="rgb(var(--c-text-primary))"
         />
         <Row
           label="Percentil 7D"
           value={snapshot.percentile_7d != null ? `${snapshot.percentile_7d}%` : "—"}
-          tone="#F5F7FB"
+          tone="rgb(var(--c-text-primary))"
         />
         <Row
           label="Desde máximo"
@@ -68,12 +69,12 @@ export default function MarketStatusPanel({ snapshot, embedded = false }: Props)
               ? `${snapshot.distance_from_high.toFixed(2)}%`
               : "—"
           }
-          tone="#FF5D69"
+          tone={TONE_HEX.down}
         />
         <Row
           label={`${snapshot.opposite_side === "BUY" ? "BUY" : "SELL"} (contrario)`}
           value={snapshot.opposite_price != null ? `Bs ${formatBs(snapshot.opposite_price)}` : "—"}
-          tone="#F5F7FB"
+          tone="rgb(var(--c-text-primary))"
         />
         <Row
           label="Spread SELL-BUY"
@@ -82,12 +83,12 @@ export default function MarketStatusPanel({ snapshot, embedded = false }: Props)
               ? `${snapshot.spread_percent_market.toFixed(2)}%`
               : "—"
           }
-          tone="#F5F7FB"
+          tone="rgb(var(--c-text-primary))"
         />
         <Row
           label="Premium vs BCV"
           value={snapshot.spread_percent != null ? `${snapshot.spread_percent.toFixed(2)}%` : "—"}
-          tone="#F5F7FB"
+          tone="rgb(var(--c-text-primary))"
         />
         {snapshot.liquidity && (
           <Row
@@ -97,7 +98,7 @@ export default function MarketStatusPanel({ snapshot, embedded = false }: Props)
                 ? `${Math.round(snapshot.liquidity.sell).toLocaleString("es-VE")} USDT`
                 : "—"
             }
-            tone="#F5F7FB"
+            tone="rgb(var(--c-text-primary))"
           />
         )}
       </div>

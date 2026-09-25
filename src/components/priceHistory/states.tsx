@@ -4,7 +4,7 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return (
     <div
       aria-hidden
-      className={`rounded-tile bg-surface-raised motion-safe:animate-pulse-soft ${className}`}
+      className={`rounded-tile bg-surface-soft motion-safe:animate-pulse-soft ${className}`}
     />
   )
 }

@@ -11,6 +11,7 @@ import type {
   P2PMarketState,
   P2PRiskLevel,
   P2PSideSelection,
+  BolivarOutlook,
 } from "../../types/prices"
 
 /**
@@ -42,7 +43,8 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
   const aiClassificationRef = useRef<{
     market_state: P2PMarketState
     risk_level: P2PRiskLevel
-  }>({ market_state: "neutral", risk_level: "normal" })
+    bolivar_outlook: BolivarOutlook | null
+  }>({ market_state: "neutral", risk_level: "normal", bolivar_outlook: null })
 
   // Disponibilidad de IA (depende de si Ollama y el modelo están arriba).
   useEffect(() => {
@@ -95,6 +97,7 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
               aiClassificationRef.current = {
                 market_state: data.market_state,
                 risk_level: data.risk_level,
+                bolivar_outlook: data.bolivar_outlook ?? null,
               }
 
               setAiCached(data.cached_analysis)
@@ -123,6 +126,7 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
                 summary: data.analysis_text,
                 market_state: aiClassificationRef.current.market_state,
                 risk_level: aiClassificationRef.current.risk_level,
+                bolivar_outlook: aiClassificationRef.current.bolivar_outlook,
                 observations: [],
               })
               setAiStreaming(false)

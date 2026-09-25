@@ -27,6 +27,10 @@ import { PRICE } from "../priceHistory/theme"
 import { INDICATOR_OPTIONS } from "./IndicatorsMenu"
 import type { IndicatorKey } from "./IndicatorsMenu"
 
+// Separador de paneles: gris translúcido, legible en tema claro y oscuro
+// (el canvas no entiende variables CSS).
+const CHART_SEPARATOR = "rgba(128, 132, 138, 0.18)"
+
 export type P2PChartMode = "candles" | "line"
 
 type Readout = {
@@ -153,7 +157,7 @@ export default function P2PProChart({
         fontSize: 11,
         attributionLogo: false,
         panes: {
-          separatorColor: COLORS.borderSoft,
+          separatorColor: CHART_SEPARATOR,
           separatorHoverColor: "rgba(255,255,255,0.06)",
         },
       },

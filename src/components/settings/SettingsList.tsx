@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 import type { LucideIcon } from "lucide-react"
 import { ChevronRight } from "lucide-react"
+import { tint } from "../ui/tone"
 
 /**
  * Piezas de las pantallas de ajustes (Más, Alertas de precio): una
@@ -37,7 +38,7 @@ export function Row({
   media,
   title,
   description,
-  accent = "#7C5CFF",
+  accent = "rgb(var(--c-text-soft))",
   right,
   onClick,
 }: {
@@ -55,7 +56,7 @@ export function Row({
       <span
         aria-hidden
         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-        style={{ backgroundColor: `${accent}1f`, color: accent }}
+        style={{ backgroundColor: tint(accent), color: accent }}
       >
         {media ?? (Icon && <Icon className="h-[17px] w-[17px]" strokeWidth={2.1} />)}
       </span>

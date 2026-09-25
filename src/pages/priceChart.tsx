@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom"
-import { ChartCandlestick, ChartLine, Sparkles } from "lucide-react"
+import { ChartCandlestick, ChartLine } from "lucide-react"
 
 import {
   MarketAnalysisError,
@@ -36,7 +36,6 @@ import {
 } from "../components/priceHistory/theme"
 import AppShell from "../components/shell/AppShell"
 import AppHeader from "../components/shell/AppHeader"
-import { VcIcon } from "../components/ui/VcIcon"
 import PeriodEvents from "../components/priceHistory/PeriodEvents"
 import PeriodAnalysisCard from "../components/priceHistory/PeriodAnalysisCard"
 import { COLORS, priceChangeColor } from "../components/priceHistory/theme"
@@ -44,6 +43,7 @@ import { ChartCard, ChartToolbar } from "../components/ui/ChartCard"
 import FullscreenChart from "../components/ui/FullscreenChart"
 import { MetricCell, MetricGrid, Notice } from "../components/ui/primitives"
 import { formatBs } from "../utils/format"
+import { getStoredPriceHistorySource, setStoredPriceHistorySource } from "../utils/priceHistoryPreferences"
 import { useCrossfade } from "../motion/useCrossfade"
 
 const CHART_MODE_OPTIONS: { key: ChartMode; label: string }[] = [
@@ -93,13 +93,22 @@ function useChartHeight() {
 export default function PriceChartPage() {
   const [range, setRange] = useState<PriceChartRange>("24h")
   // ?series=bcv|usdt|average: así una notificación de alerta BCV o
-  // Promedio abre el historial directamente en esa serie.
+  // Promedio abre el historial directamente en esa serie. Si no llega por
+  // URL, se recuerda la última fuente elegida (localStorage); si nunca se
+  // eligió ninguna, BCV es el punto de partida.
   const [searchParams] = useSearchParams()
   const [source, setSource] = useState<PriceSource>(() => {
     const series = searchParams.get("series")
 
-    return series === "bcv" || series === "usdt" || series === "average" || series === "eur" ? series : "average"
+    if (series === "bcv" || series === "usdt" || series === "average" || series === "eur") return series
+
+    return getStoredPriceHistorySource() ?? "bcv"
   })
+
+  function changeSource(next: PriceSource) {
+    setSource(next)
+    setStoredPriceHistorySource(next)
+  }
   const [mode, setMode] = useState<ChartMode>("line")
   const [expanded, setExpanded] = useState(false)
 
@@ -334,118 +343,165 @@ export default function PriceChartPage() {
 
   return (
     <>
-      <AppShell>
-        <AppHeader
-          variant="tab"
-          icon={<VcIcon name="history-ring" className="h-[18px] w-[18px]" />}
-          title="Historial de precios"
-          subtitle="Consulta. Analiza. Entiende."
-          actions={
-            aiAvailable ? (
-              <button
-                type="button"
-                onClick={openAnalysis}
-                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-brand/15 px-3.5 text-[13px] font-semibold text-brand-light outline-none transition duration-150 hover:bg-brand/20 focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.97]"
-              >
-                <Sparkles className="h-4 w-4" strokeWidth={2.2} aria-hidden />
-                Analizar
-              </button>
-            ) : undefined
-          }
-        />
+      <AppShell ambient width="wide">
+        <AppHeader variant="tab" title="Historial de precios" />
 
-        <div className="space-y-3">
-          {/* ================= CONTROLES ================= */}
-          <SegmentedControl
-            options={RANGE_OPTIONS.map(({ key, label }) => ({ key, label }))}
-            value={range}
-            onChange={setRange}
-            label="Período"
-            size="sm"
-          />
-
-          <SourceChips value={source} onChange={setSource} />
-
-          {usingCache && (
-            <Notice tone="warn">Sin conexión: se muestran los últimos datos guardados en este dispositivo.</Notice>
-          )}
-
-          {/* ================= PRECIO + GRÁFICO (una sola card) ================= */}
-          <ChartCard>
-            <div ref={heroRef} className="px-1 pt-1">
-              {loading && !summary ? (
-                <PriceHeroSkeleton />
-              ) : error && !summary ? (
-                <p className="text-[13px] text-down">No se pudieron cargar los precios.</p>
-              ) : summary ? (
-                <PriceHero summary={summary} source={sourceOption} range={range} />
-              ) : (
-                <p className="text-[13px] text-ink-muted">Todavía no hay precios registrados para {rangeLabel}.</p>
-              )}
+        {/* En escritorio, gráfico a la izquierda y una barra lateral a la
+            derecha con período/métricas/análisis (como Analizador USDT en
+            su vista Pro). La fuente (chips) va SIEMPRE encima del gráfico,
+            en la columna principal, en los dos anchos — no se duplica. En
+            móvil el resto sigue en una sola columna, en el mismo orden ya
+            aprobado; por eso los bloques que en escritorio van a la barra
+            lateral se duplican (una copia `lg:hidden` en su lugar móvil,
+            otra `hidden lg:block` en la barra), ambas leen el mismo estado
+            y solo una es visible a la vez. El gráfico y los eventos
+            tampoco se duplican: van en el mismo lugar relativo en los dos
+            anchos. */}
+        <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-4">
+          <div className="min-w-0 space-y-3">
+            <div data-enter>
+              <SourceChips value={source} onChange={changeSource} />
             </div>
 
-            <ChartToolbar
-              className="mt-2"
-              onReset={() => setResetSignal((value) => value + 1)}
-              onExpand={hasPoints ? () => setExpanded(true) : undefined}
-            >
-              <div className="w-[152px]">
-                <SegmentedControl options={CHART_MODE_OPTIONS} value={mode} onChange={setMode} label="Tipo de gráfico" size="xs" />
+            {usingCache && (
+              <div data-enter>
+                <Notice tone="warn">Sin conexión: se muestran los últimos datos guardados en este dispositivo.</Notice>
               </div>
-            </ChartToolbar>
-
-            <div ref={chartAreaRef} className="mt-1">
-              {renderChart(chartHeight)}
-            </div>
-
-            {mode === "candles" && candlesAvailable && candles?.low_detail && (
-              <p className="mt-2 px-1 text-[11px] leading-relaxed text-ink-faint">
-                Cada vela contiene una sola muestra, así que el recorrido interno del intervalo no se puede representar.
-              </p>
             )}
 
-            <p className="mt-2 flex items-center gap-1.5 px-1 text-[11px] text-ink-faint">
-              {mode === "line" ? (
-                <ChartLine className="h-3.5 w-3.5" aria-hidden />
-              ) : (
-                <ChartCandlestick className="h-3.5 w-3.5" aria-hidden />
-              )}
-              {mode === "line"
-                ? `${sourceOption.label} · ${rangeLabel}`
-                : `${sourceOption.label} · velas por ${candles?.interval === "day" ? "día" : "hora"}`}
-            </p>
-          </ChartCard>
+            {/* ================= PRECIO + GRÁFICO (una sola card) ================= */}
+            <div data-enter>
+              <ChartCard>
+                <div ref={heroRef} className="px-1 pt-1">
+                  {loading && !summary ? (
+                    <PriceHeroSkeleton />
+                  ) : error && !summary ? (
+                    <p className="text-[13px] text-down">No se pudieron cargar los precios.</p>
+                  ) : summary ? (
+                    <PriceHero summary={summary} source={sourceOption} range={range} />
+                  ) : (
+                    <p className="text-[13px] text-ink-muted">Todavía no hay precios registrados para {rangeLabel}.</p>
+                  )}
+                </div>
 
-          {/* ================= MÉTRICAS 3×2 ================= */}
-          {summary && (
-            <MetricGrid columns={3}>
-              <MetricCell compact label="Apertura" value={bs(summary.open)} />
-              <MetricCell compact label="Máximo" value={bs(summary.high)} tone="up" />
-              <MetricCell compact label="Mínimo" value={bs(summary.low)} tone="down" />
-              <MetricCell compact label="Cierre" value={bs(summary.close)} />
-              <MetricCell
-                compact
-                label="Variación"
-                value={summary.change == null ? "—" : `${summary.change > 0 ? "+" : summary.change < 0 ? "−" : ""}${formatBs(Math.abs(summary.change))}`}
-                tone={changeTone}
+                <ChartToolbar
+                  className="mt-2"
+                  onReset={() => setResetSignal((value) => value + 1)}
+                  onExpand={hasPoints ? () => setExpanded(true) : undefined}
+                >
+                  <div className="w-[152px]">
+                    <SegmentedControl options={CHART_MODE_OPTIONS} value={mode} onChange={setMode} label="Tipo de gráfico" size="xs" />
+                  </div>
+                </ChartToolbar>
+
+                <div ref={chartAreaRef} className="mt-1">
+                  {renderChart(chartHeight)}
+                </div>
+
+                {mode === "candles" && candlesAvailable && candles?.low_detail && (
+                  <p className="mt-2 px-1 text-[11px] leading-relaxed text-ink-faint">
+                    Cada vela contiene una sola muestra, así que el recorrido interno del intervalo no se puede representar.
+                  </p>
+                )}
+
+                <p className="mt-2 flex items-center gap-1.5 px-1 text-[11px] text-ink-faint">
+                  {mode === "line" ? (
+                    <ChartLine className="h-3.5 w-3.5" aria-hidden />
+                  ) : (
+                    <ChartCandlestick className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                  {mode === "line"
+                    ? `${sourceOption.label} · ${rangeLabel}`
+                    : `${sourceOption.label} · velas por ${candles?.interval === "day" ? "día" : "hora"}`}
+                </p>
+              </ChartCard>
+            </div>
+
+            <div data-enter className="lg:hidden space-y-3">
+              {/* ================= PERÍODO ================= */}
+              <SegmentedControl
+                options={RANGE_OPTIONS.map(({ key, label }) => ({ key, label }))}
+                value={range}
+                onChange={setRange}
+                label="Período"
+                size="sm"
               />
-              <MetricCell compact label="Promedio" value={bs(summary.average)} />
-            </MetricGrid>
-          )}
 
-          {/* ================= EVENTOS ================= */}
-          {summary && <PeriodEvents summary={summary} points={points} source={source} range={range} />}
+              {/* ================= MÉTRICAS 3×2 ================= */}
+              {summary && (
+                <MetricGrid columns={3} className="text-center">
+                  <MetricCell compact label="Apertura" value={bs(summary.open)} />
+                  <MetricCell compact label="Máximo" value={bs(summary.high)} tone="up" />
+                  <MetricCell compact label="Mínimo" value={bs(summary.low)} tone="down" />
+                  <MetricCell compact label="Cierre" value={bs(summary.close)} />
+                  <MetricCell
+                    compact
+                    label="Variación"
+                    value={summary.change == null ? "—" : `${summary.change > 0 ? "+" : summary.change < 0 ? "−" : ""}${formatBs(Math.abs(summary.change))}`}
+                    tone={changeTone}
+                  />
+                  <MetricCell compact label="Promedio" value={bs(summary.average)} />
+                </MetricGrid>
+              )}
+            </div>
 
-          {/* ================= ANÁLISIS DEL PERÍODO ================= */}
-          {aiAvailable ? (
-            <PeriodAnalysisCard
-              analysis={aiAnalysis}
-              fallback={`Qué ocurrió con ${sourceOption.label} en ${rangeLabel}.`}
-              onOpen={openAnalysis}
+            {/* ================= EVENTOS ================= */}
+            {summary && (
+              <div data-enter>
+                <PeriodEvents summary={summary} points={points} source={source} range={range} />
+              </div>
+            )}
+
+            {/* ================= ANÁLISIS DEL PERÍODO ================= */}
+            <div data-enter className="lg:hidden">
+              {aiAvailable ? (
+                <PeriodAnalysisCard
+                  analysis={aiAnalysis}
+                  fallback={`Qué ocurrió con ${sourceOption.label} en ${rangeLabel}.`}
+                  onOpen={openAnalysis}
+                />
+              ) : (
+                <Notice>Análisis IA no disponible temporalmente.</Notice>
+              )}
+            </div>
+          </div>
+
+          {/* ================= BARRA LATERAL (solo escritorio) ================= */}
+          <div data-enter className="hidden space-y-3 lg:block">
+            <SegmentedControl
+              options={RANGE_OPTIONS.map(({ key, label }) => ({ key, label }))}
+              value={range}
+              onChange={setRange}
+              label="Período"
+              size="sm"
             />
-          ) : (
-            <Notice>Análisis IA no disponible temporalmente.</Notice>
-          )}
+
+            {summary && (
+              <MetricGrid columns={3} className="text-center">
+                <MetricCell compact label="Apertura" value={bs(summary.open)} />
+                <MetricCell compact label="Máximo" value={bs(summary.high)} tone="up" />
+                <MetricCell compact label="Mínimo" value={bs(summary.low)} tone="down" />
+                <MetricCell compact label="Cierre" value={bs(summary.close)} />
+                <MetricCell
+                  compact
+                  label="Variación"
+                  value={summary.change == null ? "—" : `${summary.change > 0 ? "+" : summary.change < 0 ? "−" : ""}${formatBs(Math.abs(summary.change))}`}
+                  tone={changeTone}
+                />
+                <MetricCell compact label="Promedio" value={bs(summary.average)} />
+              </MetricGrid>
+            )}
+
+            {aiAvailable ? (
+              <PeriodAnalysisCard
+                analysis={aiAnalysis}
+                fallback={`Qué ocurrió con ${sourceOption.label} en ${rangeLabel}.`}
+                onOpen={openAnalysis}
+              />
+            ) : (
+              <Notice>Análisis IA no disponible temporalmente.</Notice>
+            )}
+          </div>
         </div>
       </AppShell>
 

@@ -1,9 +1,18 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
 
 import AppShell from "../components/shell/AppShell"
-import AppHeader from "../components/shell/AppHeader"
-import { CurrencyIcon, VcIcon } from "../components/ui/VcIcon"
+import DotsAnimatedIcon from "../components/icons/DotsAnimatedIcon"
+// Logo de cabecera (símbolo + wordmark en un solo PNG, generado por
+// scripts/brand-assets.py). La variante clara oscurece solo el wordmark
+// blanco y es PROVISIONAL hasta tener un logo oficial para fondo claro.
+import logoDark from "../assets/branding/generated/header-v2-dark.png"
+import logoLight from "../assets/branding/generated/header-v2-light.png"
+import { useTheme } from "../theme/useTheme"
+import AlertsBell, { RoundAction } from "../components/shell/AlertsBell"
+import AlertsModal from "../components/AlertsModal"
+import { useBankAlerts } from "../components/home/useBankAlerts"
+import { CurrencyIcon } from "../components/ui/VcIcon"
 import type { CurrencyIconName } from "../components/ui/VcIcon"
 import ConverterCard from "../components/ConverterCard"
 import { CONVERTER_MODES } from "../components/converterModes"
@@ -12,7 +21,7 @@ import { useHomeMarket } from "../components/home/useHomeMarket"
 import { Skeleton } from "../components/priceHistory/states"
 import { ListCard, ListRow } from "../components/ui/ListCard"
 import Sparkline from "../components/ui/Sparkline"
-import { ChipScroller, Notice, SectionHeader, SeeAllButton } from "../components/ui/primitives"
+import { ChipScroller, Notice } from "../components/ui/primitives"
 import { TONE_HEX, TONE_TEXT, formatSignedPercent, toneOf } from "../components/ui/tone"
 import { formatBs, formatDate } from "../utils/format"
 
@@ -30,7 +39,7 @@ const MARKET_ROWS: MarketRow[] = [
   { mode: "USD", icon: "bcv", accent: "#3AA8FF", title: "Dólar BCV", subtitle: "Oficial" },
   { mode: "EUR", icon: "eur", accent: "#3AA8FF", title: "Euro BCV", subtitle: "Oficial" },
   { mode: "USDT", icon: "usdt", accent: "#1FBF9F", title: "USDT", subtitle: "Binance P2P" },
-  { mode: "AVERAGE", icon: "average", accent: "#9D72FF", title: "Promedio", subtitle: "BCV + Binance" },
+  { mode: "AVERAGE", icon: "average", accent: "#C9A86A", title: "Promedio", subtitle: "BCV + Binance" },
 ]
 
 function initialMode(value: string | null): ConverterMode {
@@ -46,7 +55,20 @@ function initialMode(value: string | null): ConverterMode {
  */
 export default function ConvertPage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const bank = useBankAlerts()
+  const { resolved: theme } = useTheme()
+
+  // Tocar una notificación de alerta bancaria abre las alertas aquí.
+  useEffect(() => {
+    if (searchParams.get("alertas") !== "1") return
+
+    bank.openAlerts()
+    const next = new URLSearchParams(searchParams)
+    next.delete("alertas")
+    setSearchParams(next, { replace: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
   const [mode, setMode] = useState<ConverterMode>(() => initialMode(searchParams.get("tasa")))
   const market = useHomeMarket()
 
@@ -60,11 +82,30 @@ export default function ConvertPage() {
   }
 
   return (
-    <AppShell>
-      <AppHeader variant="tab" icon={<VcIcon name="convert-swap" className="h-[18px] w-[18px]" />} title="Convertir" subtitle="Calculadora instantánea" />
+    <AppShell ambient>
+      {/* Branding centrado: la campana y "Más" viven debajo, junto a las
+          tasas, así que aquí no hace falta compartir la fila con nada. */}
+      <div className="flex flex-col items-center pb-2 pt-3">
+        <h1 className="sr-only">Convertir</h1>
+        <img
+          src={theme === "light" ? logoLight : logoDark}
+          alt="Venecambio"
+          width={560}
+          height={120}
+          draggable={false}
+          className="h-[clamp(42px,12vw,54px)] w-auto max-w-[75%] select-none object-contain"
+        />
+      </div>
 
       <div className="space-y-3">
-        <ChipScroller options={CONVERTER_MODES} value={mode} onChange={setMode} label="Tasa" size="sm" />
+        <ChipScroller
+          options={CONVERTER_MODES}
+          value={mode}
+          onChange={setMode}
+          label="Tasa"
+          size="sm"
+          className="justify-center"
+        />
 
         {market.loading ? (
           <div role="status" aria-label="Cargando tasas" className="space-y-3">
@@ -93,15 +134,12 @@ export default function ConvertPage() {
               averageRate={data.average_price}
               mode={mode}
               updatedAt={data.updated_at}
+              onRefresh={market.refresh}
+              refreshing={market.refreshing}
             />
 
             <section aria-label="Tasas del mercado">
-              <SectionHeader
-                title="Tasas del mercado"
-                action={<SeeAllButton label="Ver mercado" onClick={() => navigate("/usdt-analisis")} />}
-              />
-
-              <ListCard className="mt-1.5">
+              <ListCard>
                 {MARKET_ROWS.map((row) => {
                   const info = rowData[row.mode]
                   const tone = toneOf(info.change)
@@ -140,11 +178,36 @@ export default function ConvertPage() {
                 })}
               </ListCard>
 
-              <p className="mt-2 px-1 text-[11px] text-ink-faint">Variación contra el cierre anterior guardado.</p>
             </section>
           </>
         )}
+
+        {/* Alertas bancarias y Más, juntos bajo las tasas: la barra
+            inferior queda con tres destinos simétricos. */}
+        <nav aria-label="Alertas y ajustes" className="flex justify-center gap-10 pt-2">
+          <AlertsBell
+            unreadCount={bank.unreadCount}
+            alertsEnabled={bank.alertsEnabled}
+            onClick={bank.openAlerts}
+          />
+          <RoundAction label="Más" ariaLabel="Más: ajustes y preferencias" onClick={() => navigate("/mas")}>
+            <DotsAnimatedIcon className="h-[22px] w-[22px]" onceKey="convert-more" delay={0.3} />
+          </RoundAction>
+        </nav>
       </div>
+
+      {/* Solo se abre al tocar la campana o al llegar desde una
+          notificación de alerta (?alertas=1), nunca solo al arrancar. */}
+      <AlertsModal
+        isOpen={bank.alertsOpen}
+        onClose={() => bank.setAlertsOpen(false)}
+        alerts={bank.alerts}
+        alertsEnabled={bank.alertsEnabled}
+        onEnableAlerts={bank.enableAlerts}
+        onDisableAlerts={bank.disableAlerts}
+        onEnableSound={bank.enableAlertSound}
+        alertsError={bank.alertsError}
+      />
     </AppShell>
   )
 }

@@ -34,12 +34,12 @@ export default function PeriodChips<T extends string>({
             className="group flex h-11 items-center outline-none disabled:cursor-not-allowed"
           >
             <span
-              className={`rounded-full px-2.5 py-1 text-[12px] font-semibold tabular-nums transition-colors duration-150 group-focus-visible:ring-2 group-focus-visible:ring-brand/50 ${
+              className={`rounded-full border px-4 py-1.5 text-[13px] font-semibold tabular-nums transition duration-200 group-focus-visible:ring-2 group-focus-visible:ring-gold/40 group-active:scale-[0.97] ${
                 active
-                  ? "bg-brand/20 text-brand-light"
+                  ? "border-hairbright bg-surface-soft text-ink"
                   : option.disabled
-                    ? "text-ink-faint/50"
-                    : "text-ink-muted group-hover:text-ink-soft"
+                    ? "border-transparent text-ink-faint/50"
+                    : "border-transparent text-ink-faint group-hover:text-ink-muted"
               }`}
             >
               {option.label}

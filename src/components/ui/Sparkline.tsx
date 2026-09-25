@@ -10,6 +10,7 @@ type Props = {
   fill?: boolean
   /** Ocupa el ancho del contenedor (el SVG se estira en horizontal). */
   fluid?: boolean
+  strokeWidth?: number
 }
 
 /** Puntos mínimos para que la línea signifique algo. */
@@ -29,6 +30,7 @@ export default function Sparkline({
   height = 20,
   fill = false,
   fluid = false,
+  strokeWidth = 1.75,
 }: Props) {
   const gradientId = useId()
   const clean = values.filter((value) => Number.isFinite(value) && value > 0)
@@ -66,17 +68,19 @@ export default function Sparkline({
         <>
           <defs>
             <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.22} />
-              <stop offset="100%" stopColor={color} stopOpacity={0} />
+              {/* El color va por style: así acepta variables CSS del tema,
+                  que los atributos de presentación de SVG no resuelven. */}
+              <stop offset="0%" style={{ stopColor: color, stopOpacity: 0.2 }} />
+              <stop offset="100%" style={{ stopColor: color, stopOpacity: 0 }} />
             </linearGradient>
           </defs>
-          <path d={area} fill={`url(#${gradientId})`} />
+          <path data-spark-area d={area} fill={`url(#${gradientId})`} />
         </>
       )}
       <polyline
         points={points}
-        stroke={color}
-        strokeWidth={1.75}
+        style={{ stroke: color }}
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
         strokeLinejoin="round"
         vectorEffect="non-scaling-stroke"

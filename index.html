@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es" class="dark">
+<html lang="es" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/icon.svg" />
@@ -17,8 +17,27 @@
     />
 
     <!-- Pinta la barra de estado del mismo color que el fondo. -->
-    <meta name="theme-color" content="#070B14" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#050607" />
+    <meta name="color-scheme" content="dark light" />
+
+    <!--
+      Tema antes del primer pintado, para que no parpadee: preferencia
+      guardada (src/theme/theme.ts, clave "vc-theme") o, si no hay, la del
+      sistema. Dark es el tema por defecto.
+    -->
+    <script>
+      (function () {
+        var theme = "dark"
+        try {
+          var stored = localStorage.getItem("vc-theme")
+          if (stored === "dark" || stored === "light") theme = stored
+          else if (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches) theme = "light"
+        } catch (e) {}
+        document.documentElement.setAttribute("data-theme", theme)
+        var meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute("content", theme === "light" ? "#F6F6F4" : "#050607")
+      })()
+    </script>
 
     <title>Venecambio</title>
   </head>

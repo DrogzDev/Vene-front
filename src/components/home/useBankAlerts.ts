@@ -8,7 +8,6 @@ import { areBankAlertsEnabled, disableBankAlerts, enableBankAlerts } from "../..
 const ALERTS_ENABLED_KEY = "bancamiga_alerts_enabled"
 const ALERT_SOUND_ENABLED_KEY = "bancamiga_alert_sound_enabled"
 const ALERT_SOUND_URL = "/sounds/bancamiga-alert.mp3"
-const ALERTS_STARTUP_PROMPT_KEY = "bancamiga_alerts_startup_prompt_seen"
 
 /**
  * Alertas bancarias de la campana de Inicio: lista, no leídas, push web,
@@ -206,15 +205,8 @@ export function useBankAlerts() {
     }
   }, [])
 
-  useEffect(() => {
-    const alreadyPrompted = localStorage.getItem(ALERTS_STARTUP_PROMPT_KEY) === "true"
-    const alertsAlreadyEnabled = localStorage.getItem(ALERTS_ENABLED_KEY) === "true"
-
-    if (!alreadyPrompted && !alertsAlreadyEnabled) {
-      setAlertsOpen(true)
-      localStorage.setItem(ALERTS_STARTUP_PROMPT_KEY, "true")
-    }
-  }, [])
+  // Las alertas bancarias NUNCA se abren solas al arrancar la app: solo al
+  // tocar la campana (en Más) o una notificación de alerta.
 
   useEffect(() => {
     function handleFocus() {

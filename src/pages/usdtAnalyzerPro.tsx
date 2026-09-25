@@ -85,7 +85,10 @@ function useProChartHeight() {
       const width = window.innerWidth
 
       if (width >= 1024) {
-        setHeight(460)
+        // Escritorio: la vista Pro entera cabe sin scroll. Se descuenta lo
+        // fijo de arriba (precio, temporalidades) y de abajo (controles,
+        // Analizar con IA, navegación).
+        setHeight(Math.max(240, Math.min(480, window.innerHeight - 510)))
       } else if (width >= 640) {
         setHeight(380)
       } else {
@@ -353,7 +356,7 @@ export default function UsdtAnalyzerPro({ snapshot, snapshotLoading, snapshotErr
 
   return (
     <>
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-4">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:items-start lg:gap-4">
         <div className="min-w-0 space-y-3">
           {snapshotError && !snapshotLoading && <Notice>{snapshotError}</Notice>}
 
@@ -375,8 +378,9 @@ export default function UsdtAnalyzerPro({ snapshot, snapshotLoading, snapshotErr
 
           {/* Controles debajo del gráfico: lado + medias móviles, y tipo de
               gráfico + herramientas (monto, zoom) en un sheet. */}
-          <div data-enter className="space-y-2">
-            <div className="flex items-center gap-2">
+          {/* En escritorio las dos filas de controles van en una sola. */}
+          <div data-enter className="space-y-2 lg:flex lg:items-center lg:gap-2 lg:space-y-0">
+            <div className="flex items-center gap-2 lg:min-w-0 lg:flex-1">
               <SideSelector value={side} onChange={onSideChange} className="w-[172px] shrink-0" />
               {indicatorsAvailable && (
                 <div className="min-w-0 flex-1">
@@ -385,7 +389,7 @@ export default function UsdtAnalyzerPro({ snapshot, snapshotLoading, snapshotErr
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 lg:shrink-0">
               <div
                 className={`w-[172px] shrink-0 ${isDual ? "pointer-events-none opacity-50" : ""}`}
                 title={isDual ? "Con SELL y BUY a la vez el gráfico se muestra en línea." : undefined}
@@ -398,7 +402,7 @@ export default function UsdtAnalyzerPro({ snapshot, snapshotLoading, snapshotErr
                   size="xs"
                 />
               </div>
-              <div className="flex-1" />
+              <div className="flex-1 lg:hidden" />
               <IconButton
                 label="Herramientas del gráfico"
                 active={notional !== REFERENCE_NOTIONAL || activeIndicators.length > 0}
@@ -415,11 +419,16 @@ export default function UsdtAnalyzerPro({ snapshot, snapshotLoading, snapshotErr
             </div>
           )}
 
-          {ai.aiAvailable && (
-            <div data-enter>
+          {/* En escritorio, Analizar con IA y Estadísticas comparten fila:
+              la vista entera cabe sin scroll. */}
+          <div data-enter className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+            {ai.aiAvailable && (
               <AnalyzeCta subtitle="Obtén una lectura del estado actual del mercado" onClick={ai.openDrawer} />
+            )}
+            <div className="hidden lg:block">
+              <MarketStatsDisclosure snapshot={snapshot} />
             </div>
-          )}
+          </div>
 
           {snapshot && (
             <div data-enter className="space-y-3 lg:hidden">
@@ -432,16 +441,25 @@ export default function UsdtAnalyzerPro({ snapshot, snapshotLoading, snapshotErr
             </div>
           )}
 
-          <div data-enter>
+          {/* En escritorio las estadísticas van junto a Analizar con IA. */}
+          <div data-enter className="lg:hidden">
             <MarketStatsDisclosure snapshot={snapshot} />
           </div>
         </div>
 
         {/* Panel lateral solo en escritorio. */}
         {snapshot && (
-          <div className="hidden space-y-4 lg:block">
+          // Nunca más alto que la pantalla (menos cabecera y navegación): si
+          // no cabe, el panel se desplaza por dentro y la página no.
+          <div className="no-scrollbar hidden max-h-[calc(100dvh-13.5rem)] space-y-3 overflow-y-auto overscroll-contain lg:block">
             <MarketStatusPanel snapshot={snapshot} />
-            <FxSupplyCard context={snapshot.fx_supply_context ?? null} dayStats={snapshot.fx_supply_day_stats ?? null} />
+            {/* Desplegable, como en móvil: así la vista entera cabe sin
+                scroll también en pantallas bajas. */}
+            <FxSupplyCard
+              collapsible
+              context={snapshot.fx_supply_context ?? null}
+              dayStats={snapshot.fx_supply_day_stats ?? null}
+            />
           </div>
         )}
       </div>

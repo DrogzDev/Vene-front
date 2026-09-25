@@ -10,10 +10,20 @@ type Props = {
 }
 
 const SIZE_CLASS = {
-  xl: "text-[clamp(30px,9.5vw,38px)]",
+  xl: "text-[clamp(36px,11.5vw,46px)]",
   lg: "text-[clamp(28px,8.5vw,34px)]",
   md: "text-[22px]",
 } as const
+
+/**
+ * Color de un token del tema actual como rgba() real. GSAP interpola
+ * colores concretos; con un var(--…) saltaría sin transición.
+ */
+function tokenRgba(name: "positive" | "negative", alpha: number) {
+  const channels = getComputedStyle(document.documentElement).getPropertyValue(`--c-${name}`).trim().split(/\s+/)
+
+  return channels.length === 3 ? `rgba(${channels.join(", ")}, ${alpha})` : `rgba(0, 0, 0, 0)`
+}
 
 function isPrice(value: number | null | undefined): value is number {
   return value != null && Number.isFinite(value)
@@ -81,8 +91,8 @@ export default function AnimatedPrice({ value, size = "lg", className = "" }: Pr
 
     const flash = gsap.fromTo(
       wrapper,
-      { backgroundColor: rising ? "rgba(32, 214, 160, 0.16)" : "rgba(255, 93, 105, 0.16)" },
-      { backgroundColor: "rgba(0, 0, 0, 0)", duration: DUR.flash, ease: "power1.out", clearProps: "backgroundColor" },
+      { backgroundColor: tokenRgba(rising ? "positive" : "negative", 0.16) },
+      { backgroundColor: tokenRgba(rising ? "positive" : "negative", 0), duration: DUR.flash, ease: "power1.out", clearProps: "backgroundColor" },
     )
 
     return () => {
@@ -96,9 +106,9 @@ export default function AnimatedPrice({ value, size = "lg", className = "" }: Pr
   return (
     <p
       ref={wrapperRef}
-      className={`-mx-1.5 inline-block rounded-lg px-1.5 font-extrabold leading-none tracking-tight tabular-nums text-ink ${SIZE_CLASS[size]} ${className}`}
+      className={`-mx-1.5 inline-block rounded-lg px-1.5 font-bold leading-none tracking-[-0.03em] tabular-nums text-ink ${SIZE_CLASS[size]} ${className}`}
     >
-      <span className="mr-1 text-[0.5em] font-bold text-ink-muted">Bs</span>
+      <span className="mr-1.5 text-[0.48em] font-medium tracking-normal text-ink-muted">Bs</span>
       <span ref={numberRef} />
     </p>
   )

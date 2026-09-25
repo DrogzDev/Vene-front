@@ -79,12 +79,14 @@ export default function SegmentedControl<T extends string>({
       // El cálculo del indicador asume segmentos de igual ancho y un
       // padding de 1 (0.5rem en total). Cambiar cualquiera de las dos
       // cosas lo desalinea.
-      className={`relative flex ${heightClass} w-full items-stretch rounded-ctl border border-hair bg-surface p-1`}
+      className={`relative flex ${heightClass} w-full items-stretch rounded-[14px] border border-hair bg-surface p-1`}
     >
       {/* Indicador deslizante. */}
       <span
         aria-hidden
-        className="pointer-events-none absolute inset-y-1 left-1 rounded-[10px] bg-brand shadow-brand motion-safe:transition-transform motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.32,0.72,0,1)]"
+        // Activo: dorado MUY suave (tinte + borde fino), nunca un bloque
+        // de color. Se desliza con transform en ~220 ms.
+        className="pointer-events-none absolute inset-y-1 left-1 rounded-[10px] border border-gold/30 bg-gold/[0.12] motion-safe:transition-transform motion-safe:duration-[220ms] motion-safe:ease-[cubic-bezier(0.32,0.72,0,1)]"
         style={{
           width: `calc((100% - 0.5rem) / ${options.length})`,
           transform: `translateX(${activeIndex * 100}%)`,
@@ -106,8 +108,8 @@ export default function SegmentedControl<T extends string>({
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(option.key)}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            className={`relative z-10 flex-1 rounded-[10px] ${textClass} font-semibold tracking-tight outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-brand/50 ${
-              isActive ? "text-white" : "text-ink-muted hover:text-ink-soft"
+            className={`relative z-10 flex-1 rounded-[10px] ${textClass} tracking-tight outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-gold/40 ${
+              isActive ? "font-semibold text-gold-ink" : "font-medium text-ink-muted hover:text-ink-soft"
             }`}
           >
             {option.label}

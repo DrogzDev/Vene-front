@@ -3,31 +3,40 @@ import type { PriceChartRange, PriceSource } from "../../types/prices"
 /**
  * Paleta compartida, en su versión JavaScript.
  *
- * Los mismos valores viven en `tailwind.config.js` como tokens. Esta
- * copia existe porque hay consumidores que no pueden leer una clase de
- * Tailwind: lightweight-charts recibe los colores como strings en su
- * configuración, y varios componentes los aplican con `style` en línea.
+ * Los colores de la interfaz viven en src/styles/tokens.css (temas dark
+ * y light). Esta copia en hex existe porque lightweight-charts dibuja en
+ * un canvas y necesita strings de color reales: no entiende var(--…).
+ * Refleja el tema dark, que es el principal.
  *
- * Los dos archivos se mueven juntos. Si cambias un color aquí y no
- * allí, la gráfica y la tarjeta que la rodea dejan de pegar.
+ * Para SVG o estilos en línea, usa `CSS_COLORS`: siguen el tema activo.
  */
 export const COLORS = {
-  background: "#06080C",
-  surface: "#0E131B",
-  surfaceRaised: "#141A24",
-  surfaceSoft: "#1A212C",
-  border: "rgba(255, 255, 255, 0.06)",
-  borderSoft: "rgba(255, 255, 255, 0.05)",
-  brand: "#7C5CFF",
-  text: "#F5F7FA",
-  textSoft: "#C3CBD6",
-  textMuted: "#8E9AAA",
-  textFaint: "#5E6B7B",
-  up: "#20D6A0",
-  down: "#FF5D69",
+  background: "#050607",
+  surface: "#0D1014",
+  surfaceRaised: "#11151A",
+  surfaceSoft: "#171B20",
+  border: "#20252B",
+  borderSoft: "#1A1E23",
+  gold: "#C9A86A",
+  text: "#F7F7F5",
+  textSoft: "#D3D6DA",
+  textMuted: "#A0A6AE",
+  textFaint: "#69717C",
+  up: "#14CFA8",
+  down: "#FF5B65",
   info: "#3AA8FF",
   // Rejilla del gráfico: visible lo justo para leer niveles.
   grid: "rgba(255, 255, 255, 0.05)",
+} as const
+
+/** Los mismos colores como variables CSS: cambian solos con el tema. */
+export const CSS_COLORS = {
+  gold: "rgb(var(--c-gold))",
+  teal: "rgb(var(--c-teal))",
+  info: "rgb(var(--c-info))",
+  positive: "rgb(var(--c-positive))",
+  negative: "rgb(var(--c-negative))",
+  textMuted: "rgb(var(--c-text-secondary))",
 } as const
 
 /**
@@ -64,10 +73,10 @@ export type SourceOption = {
  * gráfico y el Price Hero leen todos de esta lista.
  */
 export const SOURCE_OPTIONS: SourceOption[] = [
-  { key: "average", label: "Promedio", pair: "Bs/USD · Promedio", color: "#7C5CFF" },
+  { key: "usdt", label: "USDT", pair: "Bs/USDT · Binance", color: "#10C7B0" },
   { key: "bcv", label: "BCV", pair: "Bs/USD · BCV", color: "#3AA8FF" },
-  { key: "usdt", label: "USDT", pair: "Bs/USDT · Binance", color: "#20D6A0" },
   { key: "eur", label: "Euro", pair: "Bs/EUR · BCV", color: "#2DD4E6" },
+  { key: "average", label: "Promedio", pair: "Bs/USD · Promedio", color: "#C9A86A" },
 ]
 
 export function getSourceOption(source: PriceSource): SourceOption {

@@ -507,11 +507,19 @@ export type P2PMarketStatusResponse = P2PMarketSnapshot &
 export type P2PMarketState = P2PTrend
 export type P2PRiskLevel = "low" | "normal" | "elevated" | "high"
 
+/**
+ * Qué significa el movimiento para quien tiene bolívares (backend:
+ * market_reading.bolivar_outlook). null = sin historia suficiente: la
+ * interfaz no muestra la etiqueta.
+ */
+export type BolivarOutlook = "unfavorable" | "neutral" | "mixed" | "favorable" | "favorable_temporary"
+
 export type P2PMarketAnalysis = {
   headline: string
   summary: string
   market_state: P2PMarketState
   risk_level: P2PRiskLevel
+  bolivar_outlook?: BolivarOutlook | null
   observations: string[]
 }
 
@@ -546,6 +554,7 @@ export type AiStreamMetadata = {
   generated_at: string
   market_state: P2PMarketState
   risk_level: P2PRiskLevel
+  bolivar_outlook?: BolivarOutlook | null
 }
 
 /**
@@ -633,6 +642,7 @@ export type AiStreamMetrics = FxSupplyBundle & {
   snapshot: P2PMarketSnapshot
   market_state: P2PMarketState
   risk_level: P2PRiskLevel
+  bolivar_outlook?: BolivarOutlook | null
   fx_event_context: Record<string, unknown> | null
   market_reading?: MarketReading | null
 }
@@ -665,6 +675,7 @@ export type AiAnalysisListItem = {
   current_price: number | null
   market_state: P2PMarketState
   risk_level: P2PRiskLevel
+  bolivar_outlook?: BolivarOutlook | null
   source: string
   side: P2PSide
   notional: number | null

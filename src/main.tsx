@@ -11,7 +11,9 @@ import '@fontsource-variable/inter'
 import './index.css'
 import App from './App.tsx'
 import { initAppLifecycle } from './services/appLifecycle'
+import { initTheme } from './theme/theme'
 
+initTheme()
 initAppLifecycle()
 
 createRoot(document.getElementById('root')!).render(

@@ -14,6 +14,13 @@ type Props = {
   width?: "app" | "wide"
   /** Oculta la navegación inferior (pantalla completa del gráfico). */
   hideNav?: boolean
+  /** Luz ambiental que recorre el fondo (Inicio). */
+  ambient?: boolean
+  /**
+   * Entrada de pantalla. "none" cuando la pantalla trae su propia
+   * coreografía de entrada.
+   */
+  entrance?: "page" | "none"
 }
 
 const WIDTHS = {
@@ -38,13 +45,19 @@ export default function AppShell({
   children,
   width = "app",
   hideNav = false,
+  ambient = false,
+  entrance = "page",
 }: Props) {
   const contentRef = useRef<HTMLDivElement | null>(null)
 
-  usePageEntrance(contentRef)
+  usePageEntrance(contentRef, entrance === "page")
 
   return (
-    <div className="relative min-h-dvh bg-bg text-ink">
+    // Con luz ambiental el fondo lo pinta <body>: si este contenedor tuviera
+    // su propio fondo taparía la capa de luz (va con z-index negativo).
+    <div className={`relative min-h-dvh text-ink ${ambient ? "" : "bg-bg"}`}>
+      {ambient && <div aria-hidden className="ambient-light" />}
+
       {/* Franja fija bajo la barra de estado: el contenido que pasa por
           debajo al hacer scroll no se mezcla con el reloj ni los iconos. */}
       <div

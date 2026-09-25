@@ -4,7 +4,7 @@ import {
   ChevronRight,
   Heart,
   Info,
-  Menu,
+  Palette,
   Plus,
   Smartphone,
   Volume2,
@@ -29,6 +29,8 @@ import { notificationService, type PushState } from "../services/notifications"
 import type { PriceAlert } from "../services/priceAlerts"
 import { getStoredViewMode, setStoredViewMode } from "../utils/viewMode"
 import type { P2PViewMode } from "../types/prices"
+import type { ThemePreference } from "../theme/theme"
+import { useTheme } from "../theme/useTheme"
 
 const ALERTS_ENABLED_KEY = "bancamiga_alerts_enabled"
 const ALERT_SOUND_ENABLED_KEY = "bancamiga_alert_sound_enabled"
@@ -36,6 +38,12 @@ const ALERT_SOUND_URL = "/sounds/bancamiga-alert.mp3"
 
 // Filas visibles en Más; el resto vive en "Ver todas".
 const ALERTS_PREVIEW_LIMIT = 3
+
+const THEME_OPTIONS: { key: ThemePreference; label: string }[] = [
+  { key: "system", label: "Sistema" },
+  { key: "dark", label: "Oscuro" },
+  { key: "light", label: "Claro" },
+]
 
 const VIEW_OPTIONS: { key: P2PViewMode; label: string }[] = [
   { key: "simple", label: "Simple" },
@@ -226,8 +234,8 @@ export default function MorePage() {
 
   return (
     <>
-      <AppShell>
-        <AppHeader variant="tab" icon={Menu} title="Más" subtitle="Ajustes y preferencias" />
+      <AppShell ambient>
+        <AppHeader variant="tab" title="Más" />
 
         <Section title="Notificaciones">
           <Row
@@ -375,6 +383,10 @@ export default function MorePage() {
           </div>
         </Section>
 
+        <Section title="Apariencia">
+          <ThemeSetting />
+        </Section>
+
         <Section title="Proyecto">
           <Row
             icon={Heart}
@@ -410,5 +422,39 @@ export default function MorePage() {
         onClose={() => setDonationsOpen(false)}
       />
     </>
+  )
+}
+
+/** Tema de la app: por defecto sigue al sistema; se recuerda la elección. */
+function ThemeSetting() {
+  const { preference, setPreference } = useTheme()
+
+  return (
+    <div className="px-4 py-3.5">
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-surface-soft text-ink-soft"
+        >
+          <Palette className="h-[18px] w-[18px]" strokeWidth={2} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14px] font-semibold text-ink">Tema</p>
+          <p className="mt-0.5 text-[12px] leading-snug text-ink-muted">
+            &quot;Sistema&quot; usa el modo claro u oscuro de tu teléfono.
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <SegmentedControl
+          options={THEME_OPTIONS}
+          value={preference}
+          onChange={setPreference}
+          label="Tema de la app"
+          size="sm"
+        />
+      </div>
+    </div>
   )
 }

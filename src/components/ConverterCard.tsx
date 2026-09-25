@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { ArrowDownUp, Check, Copy } from "lucide-react"
+import { ArrowDownUp, Check, Copy, RefreshCw } from "lucide-react"
 
-import { EASE, gsap, prefersReducedMotion, withMotion } from "../motion/motion"
+import { EASE, gsap, withMotion } from "../motion/motion"
 import { formatBs, formatRelativeFromNow } from "../utils/format"
 import CurrencyBadge from "./ui/CurrencyBadge"
 import type { CurrencyCode } from "./ui/CurrencyBadge"
 import { IconButton } from "./ui/primitives"
+import SlingButton from "./ui/SlingButton"
 import { CUSTOM_RATE_STORAGE_KEY } from "./converterModes"
 import type { ConverterMode, ConverterRates } from "./converterModes"
 
@@ -13,6 +14,9 @@ type Props = ConverterRates & {
   mode: ConverterMode
   /** Momento de las tasas, para "Actualizado hace X". */
   updatedAt?: string | null
+  /** Refresca las tasas en vivo (junto al botón de copiar). */
+  onRefresh?: () => void
+  refreshing?: boolean
 }
 
 /** Moneda de origen de cada tasa (el Promedio también se expresa en USD). */
@@ -33,9 +37,9 @@ function Side({
   children: React.ReactNode
 }) {
   return (
-    <div className="px-3.5 pb-3 pt-2.5">
+    <div className="px-4 pb-3.5 pt-3">
       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">{label}</p>
-      <div ref={contentRef} className="mt-1.5 flex items-center gap-3">
+      <div ref={contentRef} className="mt-2 flex items-center gap-3">
         {children}
       </div>
     </div>
@@ -54,7 +58,16 @@ function Side({
  * abajo "sube"). Al cambiar de tasa solo se refrescan iconos, etiquetas
  * y resultado. La card nunca rota ni se mueve entera.
  */
-export default function ConverterCard({ usdRate, eurRate, usdtRate, averageRate, mode, updatedAt }: Props) {
+export default function ConverterCard({
+  usdRate,
+  eurRate,
+  usdtRate,
+  averageRate,
+  mode,
+  updatedAt,
+  onRefresh,
+  refreshing = false,
+}: Props) {
   const [amount, setAmount] = useState("1")
   const [copied, setCopied] = useState(false)
 
@@ -73,22 +86,8 @@ export default function ConverterCard({ usdRate, eurRate, usdtRate, averageRate,
   const cardRef = useRef<HTMLElement | null>(null)
   const fromRef = useRef<HTMLDivElement | null>(null)
   const toRef = useRef<HTMLDivElement | null>(null)
-  const swapIconRef = useRef<HTMLSpanElement | null>(null)
   const rateLineRef = useRef<HTMLParagraphElement | null>(null)
   const previous = useRef({ inverted, mode })
-
-  // Contexto GSAP para el giro del botón: se revierte al desmontar.
-  const swapContext = useRef<gsap.Context | null>(null)
-
-  useLayoutEffect(() => {
-    const context = gsap.context(() => {}, cardRef)
-    swapContext.current = context
-
-    return () => {
-      context.revert()
-      swapContext.current = null
-    }
-  }, [])
 
   // Swap o cambio de tasa: se anima solo el contenido que cambió.
   useLayoutEffect(() => {
@@ -122,14 +121,6 @@ export default function ConverterCard({ usdRate, eurRate, usdtRate, averageRate,
 
   function swap() {
     setInverted((value) => !value)
-
-    const icon = swapIconRef.current
-
-    if (!icon || prefersReducedMotion()) return
-
-    swapContext.current?.add(() => {
-      gsap.to(icon, { rotation: "+=180", duration: 0.25, ease: EASE.out })
-    })
   }
 
   useEffect(() => {
@@ -181,61 +172,84 @@ export default function ConverterCard({ usdRate, eurRate, usdtRate, averageRate,
           onChange={(event) => setAmount(event.target.value)}
           aria-label={`Cantidad en ${from === "VES" ? "bolívares" : unitName}`}
           placeholder="0"
-          className="min-w-0 flex-1 bg-transparent text-right text-[24px] font-bold tabular-nums text-ink-soft outline-none placeholder:text-ink-faint focus:text-ink"
+          className="min-w-0 flex-1 bg-transparent text-right text-[27px] font-bold tabular-nums text-ink-soft outline-none placeholder:text-ink-faint focus:text-ink"
         />
       </Side>
 
-      {/* Separador con el botón de invertir encima. El giro va en el
-          icono, no en el botón: el botón ya usa transform para centrarse. */}
+      {/* Separador con el botón de invertir encima: arrastrar y soltar lo
+          dispara con una animación de resortera (SlingButton); un simple
+          toque lo invierte al instante igual que antes. */}
       <div className="relative mx-3.5 h-px bg-hair">
-        <button
-          type="button"
-          onClick={swap}
-          aria-label="Invertir el sentido de la conversión"
-          className="absolute left-1/2 top-1/2 z-10 flex h-10 w-10 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-hairbright bg-surface-raised text-brand-light outline-none transition-colors duration-150 hover:bg-brand/15 focus-visible:ring-2 focus-visible:ring-brand/50"
-        >
-          <span ref={swapIconRef} className="flex">
+        <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2">
+          <SlingButton
+            onSend={swap}
+            ariaLabel="Invertir el sentido de la conversión"
+            size={40}
+            padColor="rgb(var(--c-surface-2))"
+            iconColor="rgb(var(--c-gold-ink))"
+            accentColor="rgb(var(--c-gold))"
+            wellColor="rgb(var(--c-surface-1))"
+            bandColor="rgb(var(--c-border-default))"
+            axis="horizontal"
+            maxPull={90}
+            armAt={30}
+            flight={55}
+            particles={10}
+            spread={45}
+          >
             <ArrowDownUp className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden />
-          </span>
-        </button>
+          </SlingButton>
+        </div>
       </div>
 
       <Side label="A" contentRef={toRef}>
         <CurrencyBadge code={to} />
         <p
           aria-live="polite"
-          className="min-w-0 flex-1 truncate text-right text-[clamp(28px,8.5vw,34px)] font-extrabold tracking-tight tabular-nums text-ink"
+          className="min-w-0 flex-1 truncate text-right text-[clamp(31px,9.2vw,39px)] font-extrabold tracking-tight tabular-nums text-ink"
         >
           {resultText}
         </p>
       </Side>
 
+      {/* "1 unidad = Bs X" es redundante: el resultado ya es el
+          protagonista de la fila "A" de arriba (con cantidad = 1, son el
+          mismo número). Solo queda aquí el aviso cuando falta escribir
+          una tasa personalizada; la antigüedad de la tasa se muestra
+          junto al botón de actualizar, que es donde de verdad sirve. */}
       <div className="flex items-center justify-between gap-3 border-t border-hair bg-bg-soft/60 py-1.5 pl-3.5 pr-2">
         <p ref={rateLineRef} className="min-w-0 truncate text-[12px] text-ink-muted">
-          {rate > 0 ? (
-            <>
-              1 {unitName} = Bs {formatBs(rate)}
-              {updatedAt && mode !== "CUSTOM" && (
-                <span className="text-ink-faint"> · {formatRelativeFromNow(updatedAt)}</span>
-              )}
-            </>
-          ) : (
-            "Escribe una tasa para convertir."
-          )}
+          {rate > 0 ? null : "Escribe una tasa para convertir."}
         </p>
 
-        <IconButton
-          label={copied ? "Resultado copiado" : "Copiar resultado"}
-          onClick={copyResult}
-          disabled={rate <= 0}
-          active={copied}
-        >
-          {copied ? (
-            <Check className="h-4 w-4 text-up" strokeWidth={2.4} aria-hidden />
-          ) : (
-            <Copy className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+        <span className="flex shrink-0 items-center gap-2">
+          {updatedAt && mode !== "CUSTOM" && (
+            <span className="whitespace-nowrap text-[11px] text-ink-faint">{formatRelativeFromNow(updatedAt)}</span>
           )}
-        </IconButton>
+
+          {onRefresh && (
+            <IconButton label={refreshing ? "Actualizando tasas" : "Actualizar tasas"} onClick={onRefresh} disabled={refreshing}>
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "motion-safe:animate-spin" : ""}`}
+                strokeWidth={2.2}
+                aria-hidden
+              />
+            </IconButton>
+          )}
+
+          <IconButton
+            label={copied ? "Resultado copiado" : "Copiar resultado"}
+            onClick={copyResult}
+            disabled={rate <= 0}
+            active={copied}
+          >
+            {copied ? (
+              <Check className="h-4 w-4 text-up" strokeWidth={2.4} aria-hidden />
+            ) : (
+              <Copy className="h-4 w-4" strokeWidth={2.2} aria-hidden />
+            )}
+          </IconButton>
+        </span>
       </div>
 
       {mode === "CUSTOM" && (

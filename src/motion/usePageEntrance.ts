@@ -14,11 +14,11 @@ import { DUR, EASE, gsap, withMotion } from "./motion"
  * ancestro rompería los `position: fixed` de dentro (hojas, gráfico a
  * pantalla completa).
  */
-export function usePageEntrance(rootRef: RefObject<HTMLElement | null>) {
+export function usePageEntrance(rootRef: RefObject<HTMLElement | null>, enabled = true) {
   useLayoutEffect(() => {
     const root = rootRef.current
 
-    if (!root) return
+    if (!root || !enabled) return
 
     return withMotion(root, () => {
       const items = gsap.utils.toArray<HTMLElement>("[data-enter]", root)
@@ -43,5 +43,5 @@ export function usePageEntrance(rootRef: RefObject<HTMLElement | null>) {
         clearProps: "opacity,transform",
       })
     })
-  }, [rootRef])
+  }, [rootRef, enabled])
 }

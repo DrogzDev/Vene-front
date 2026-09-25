@@ -17,7 +17,7 @@ export function ListCard({ children, className = "" }: { children: ReactNode; cl
 export function ListRow({
   icon: Icon,
   media,
-  accent = "#9D72FF",
+  accent = "#A0A6AE",
   title,
   subtitle,
   right,

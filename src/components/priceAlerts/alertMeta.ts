@@ -15,7 +15,7 @@ export const SOURCE_META: Record<
 > = {
   USDT: { label: "USDT", icon: CircleDollarSign, accent: "#20D6A0" },
   BCV: { label: "BCV", icon: Landmark, accent: "#3AA8FF" },
-  AVERAGE: { label: "Promedio", icon: ChartColumnIncreasing, accent: "#9D72FF" },
+  AVERAGE: { label: "Promedio", icon: ChartColumnIncreasing, accent: "#C9A86A" },
 }
 
 export const SOURCE_ORDER: PriceAlertSource[] = ["USDT", "BCV", "AVERAGE"]

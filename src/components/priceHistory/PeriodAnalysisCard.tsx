@@ -6,10 +6,16 @@ import { VcIcon } from "../ui/VcIcon"
 /**
  * Acceso compacto al análisis del período.
  *
+ * Visualmente es la fila gemela del acordeón "Eventos del período" (mismo
+ * icono, título y subtítulo que un Disclosure), pero no es un Disclosure
+ * real: ya muestra su resumen de dos líneas siempre visible, así que no
+ * hay contenido extra que "expandir" solo para pedir otro toque. El
+ * ChevronRight (en vez de un ChevronDown que gira) señala que este toque
+ * abre una vista nueva, no que despliega algo en el sitio.
+ *
  * Si ya hay un análisis generado para este rango y fuente, muestra su
  * titular y resumen recortados a dos líneas: texto real del backend. Si
  * no lo hay, describe qué se analizaría, sin adelantar conclusiones.
- * El análisis completo se abre en el panel existente.
  */
 export default function PeriodAnalysisCard({
   analysis,
@@ -25,22 +31,18 @@ export default function PeriodAnalysisCard({
     <button
       type="button"
       onClick={onOpen}
-      className="flex w-full items-start gap-3 rounded-card border border-hair bg-surface px-4 py-3.5 text-left outline-none transition duration-150 hover:border-hairbright hover:bg-surface-raised focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.99]"
+      className="flex min-h-14 w-full items-center gap-3 rounded-card border border-hair bg-surface px-4 py-3 text-left outline-none transition duration-150 hover:border-hairbright hover:bg-surface-raised focus-visible:ring-2 focus-visible:ring-brand/50 active:scale-[0.99]"
     >
-      <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-brand/15 text-brand-light">
-        <VcIcon name="trend-analysis" className="h-[18px] w-[18px]" />
-      </span>
+      <VcIcon name="trend-analysis" className="h-[18px] w-[18px] shrink-0 text-ink-muted" />
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-bold text-ink">Análisis del período</span>
+        <span className="block text-[14px] font-semibold text-ink">Análisis del período</span>
         <span className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-ink-muted">
           {analysis ? `${analysis.headline.replace(/[.!?…:]+$/, "")}. ${analysis.summary}` : fallback}
         </span>
-        <span className="mt-1.5 inline-flex items-center gap-0.5 text-[12px] font-semibold text-brand-light">
-          Ver análisis
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-        </span>
       </span>
+
+      <ChevronRight className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
     </button>
   )
 }

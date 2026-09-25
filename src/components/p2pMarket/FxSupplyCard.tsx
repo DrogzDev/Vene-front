@@ -8,6 +8,7 @@ import type {
   FxSupplyStatBlock,
 } from "../../types/prices"
 import { BankIcon } from "../priceHistory/icons"
+import { TONE_HEX } from "../ui/tone"
 
 type Props = {
   /** Sin card ni título propios: va dentro de un bloque plegable. */
@@ -46,7 +47,7 @@ function describe(state: FxSupplyInstitutionState): Line {
           state.event_count > 1
             ? `${state.event_count} activaciones hoy`
             : "En su horario habitual",
-        tone: "#20D6A0",
+        tone: TONE_HEX.up,
       }
 
     case "CONFIRMED_EARLY":
@@ -55,7 +56,7 @@ function describe(state: FxSupplyInstitutionState): Line {
           ? `Venta registrada · ${state.first_event_time}`
           : "Venta registrada",
         detail: "Antes de su ventana habitual",
-        tone: "#20D6A0",
+        tone: TONE_HEX.up,
       }
 
     case "CONFIRMED_LATE":
@@ -64,35 +65,35 @@ function describe(state: FxSupplyInstitutionState): Line {
           ? `Venta registrada · ${state.first_event_time}`
           : "Venta registrada",
         detail: "Fuera de ventana habitual",
-        tone: "#20D6A0",
+        tone: TONE_HEX.up,
       }
 
     case "MONITORING":
       return {
         headline: "Sin registrar todavía",
         detail: `Dentro de su horario habitual`,
-        tone: "#C7D0DE",
+        tone: "rgb(var(--c-text-soft))",
       }
 
     case "USUAL_WINDOW_MISSED":
       return {
         headline: "Sin evento habitual",
         detail: `Monitoreando hasta ${state.monitor_until}`,
-        tone: "#F0B429",
+        tone: "rgb(var(--c-warning))",
       }
 
     case "EXPECTED_BUT_NOT_SEEN":
       return {
         headline: "Sin venta registrada hoy",
         detail: "Monitoreo completado",
-        tone: "#FF5D69",
+        tone: TONE_HEX.down,
       }
 
     default:
       return {
         headline: "Sin información",
         detail: "Cobertura insuficiente del lector",
-        tone: "#5E6B7B",
+        tone: "rgb(var(--c-text-muted))",
       }
   }
 }
@@ -173,13 +174,13 @@ export default function FxSupplyCard({ context, dayStats, embedded = false, coll
           aria-expanded={open}
           aria-controls={panelId}
           onClick={() => setOpen((value) => !value)}
-          className="-mx-4 -mt-4 flex w-[calc(100%+2rem)] items-center justify-between gap-3 px-4 pb-1 pt-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand/50"
+          className="-mx-4 -mt-4 flex w-[calc(100%+2rem)] items-center justify-between gap-3 px-4 pb-1 pt-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold/40"
         >
           <span className="flex items-center gap-2 text-[15px] font-bold tracking-tight text-ink">
             <BankIcon className="h-4 w-4 text-ink-muted" />
             Oferta de divisas
           </span>
-          <span className="flex min-h-9 items-center gap-0.5 text-[13px] font-semibold text-brand-light">
+          <span className="flex min-h-9 items-center gap-0.5 text-[13px] font-medium text-ink-muted">
             {open ? "Ocultar" : "Ver detalle"}
             <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${open ? "rotate-180" : ""}`} aria-hidden />
           </span>
