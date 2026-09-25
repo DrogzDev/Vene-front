@@ -36,6 +36,8 @@ export type AiStreamParams = {
   /** Solo cuando el usuario pide explícitamente regenerar. Nunca
    *  automático: sin esto, un análisis idéntico se reutiliza. */
   force?: boolean
+  /** Solo importa cuando force es true; el backend lo ignora si no. */
+  captchaToken?: string
   signal?: AbortSignal
 }
 
@@ -96,6 +98,7 @@ export async function streamP2PMarketAnalysis(
       range: params.range,
       notional: params.notional,
       force: params.force ?? false,
+      captcha_token: params.captchaToken,
     }),
     signal: params.signal,
   })

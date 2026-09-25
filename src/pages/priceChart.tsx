@@ -44,6 +44,7 @@ import FullscreenChart from "../components/ui/FullscreenChart"
 import { MetricCell, MetricGrid, Notice } from "../components/ui/primitives"
 import { formatBs } from "../utils/format"
 import { getStoredPriceHistorySource, setStoredPriceHistorySource } from "../utils/priceHistoryPreferences"
+import { getTurnstileToken } from "../utils/turnstile"
 import { useCrossfade } from "../motion/useCrossfade"
 
 const CHART_MODE_OPTIONS: { key: ChartMode; label: string }[] = [
@@ -233,8 +234,15 @@ export default function PriceChartPage() {
       setAiError(null)
 
       try {
+        // El captcha solo se pide para refrescar: es la ruta que salta
+        // el caché y de verdad paga una inferencia.
+        const captchaToken = options.refresh
+          ? await getTurnstileToken("ai_refresh")
+          : undefined
+
         const result = await getMarketAnalysis(range, source, {
           refresh: options.refresh,
+          captchaToken,
           signal: controller.signal,
         })
 
@@ -248,11 +256,15 @@ export default function PriceChartPage() {
 
         setAiAnalysis(null)
 
-        setAiError(
-          err instanceof MarketAnalysisError
-            ? err.message
-            : "Análisis IA no disponible temporalmente.",
-        )
+        if (err instanceof Error && err.message.startsWith("captcha_")) {
+          setAiError("No se pudo verificar que eres humano. Intenta de nuevo.")
+        } else {
+          setAiError(
+            err instanceof MarketAnalysisError
+              ? err.message
+              : "Análisis IA no disponible temporalmente.",
+          )
+        }
       } finally {
         if (!controller.signal.aborted) setAiLoading(false)
       }

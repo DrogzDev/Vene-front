@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { MarketAnalysisError, getMarketAnalysisStatus } from "../../services/pricesApi"
 import { streamP2PMarketAnalysis } from "../../services/aiStream"
+import { getTurnstileToken } from "../../utils/turnstile"
 import type {
   FxSupplyContext,
   IntradayBestHours,
@@ -88,8 +89,12 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
       const analysisSide = side === "BOTH" ? "SELL" : side
 
       try {
+        // El captcha solo se pide al forzar: es la ruta que salta el
+        // caché/lock compartido y de verdad paga una inferencia.
+        const captchaToken = force ? await getTurnstileToken("ai_refresh") : undefined
+
         await streamP2PMarketAnalysis(
-          { side: analysisSide, range: "1h", notional, force, signal: controller.signal },
+          { side: analysisSide, range: "1h", notional, force, captchaToken, signal: controller.signal },
           {
             onMetadata: (data) => {
               if (controller.signal.aborted) return
@@ -146,7 +151,12 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
         if (controller.signal.aborted) return
 
         setAiStreaming(false)
-        setAiError(err instanceof MarketAnalysisError ? err.message : "Análisis IA no disponible temporalmente.")
+
+        if (err instanceof Error && err.message.startsWith("captcha_")) {
+          setAiError("No se pudo verificar que eres humano. Intenta de nuevo.")
+        } else {
+          setAiError(err instanceof MarketAnalysisError ? err.message : "Análisis IA no disponible temporalmente.")
+        }
       } finally {
         if (!controller.signal.aborted) setAiLoading(false)
       }

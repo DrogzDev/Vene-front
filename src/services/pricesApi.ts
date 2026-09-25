@@ -405,7 +405,7 @@ export async function getMarketAnalysisStatus(options: { signal?: AbortSignal } 
 export async function getMarketAnalysis(
   range: PriceChartRange,
   source: PriceSource,
-  options: { refresh?: boolean; signal?: AbortSignal } = {},
+  options: { refresh?: boolean; captchaToken?: string; signal?: AbortSignal } = {},
 ) {
   const response = await fetch(`${API_BASE}/prices/analysis/`, {
     method: "POST",
@@ -414,11 +414,13 @@ export async function getMarketAnalysis(
       "X-Device-ID": getDeviceId(),
     },
     // El cuerpo solo dice QUÉ analizar. Los precios los lee Django
-    // de su propia base de datos.
+    // de su propia base de datos. captcha_token solo importa cuando
+    // refresh es true: el backend lo ignora en el resto de los casos.
     body: JSON.stringify({
       range,
       source,
       refresh: options.refresh ?? false,
+      captcha_token: options.captchaToken,
     }),
     signal: options.signal,
   })
