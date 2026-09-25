@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { MarketAnalysisError, getMarketAnalysisStatus } from "../../services/pricesApi"
 import { streamP2PMarketAnalysis } from "../../services/aiStream"
 import { getTurnstileToken } from "../../utils/turnstile"
+import { useAiRewardFlow } from "../../hooks/useAiRewardFlow"
 import type {
   FxSupplyContext,
   IntradayBestHours,
@@ -39,6 +40,8 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
   const [aiReading, setAiReading] = useState<MarketReading | null>(null)
   const [aiGeneratedAt, setAiGeneratedAt] = useState<string | null>(null)
   const [aiCached, setAiCached] = useState(false)
+
+  const rewardFlow = useAiRewardFlow()
 
   const aiRequestRef = useRef<AbortController | null>(null)
   const aiClassificationRef = useRef<{
@@ -89,64 +92,77 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
       const analysisSide = side === "BOTH" ? "SELL" : side
 
       try {
-        // El captcha solo se pide al forzar: es la ruta que salta el
-        // caché/lock compartido y de verdad paga una inferencia.
-        const captchaToken = force ? await getTurnstileToken("ai_refresh") : undefined
+        // Al forzar, primero hay que tener el gratis diario o un
+        // crédito de anuncio — si no hay ninguno, esto abre el sheet y
+        // espera a que el usuario lo complete (o cancele).
+        if (force) {
+          const granted = await rewardFlow.ensureEntitlement()
 
-        await streamP2PMarketAnalysis(
-          { side: analysisSide, range: "1h", notional, force, captchaToken, signal: controller.signal },
-          {
-            onMetadata: (data) => {
-              if (controller.signal.aborted) return
+          if (!granted || controller.signal.aborted) return
+        }
 
-              aiClassificationRef.current = {
-                market_state: data.market_state,
-                risk_level: data.risk_level,
-                bolivar_outlook: data.bolivar_outlook ?? null,
-              }
+        await rewardFlow.runWithEntitlement(async () => {
+          // El captcha solo se pide al forzar: es la ruta que salta el
+          // caché/lock compartido y de verdad paga una inferencia. Se
+          // pide de nuevo en cada intento: los tokens de Turnstile son
+          // de un solo uso.
+          const captchaToken = force ? await getTurnstileToken("ai_refresh") : undefined
 
-              setAiCached(data.cached_analysis)
-              setAiGeneratedAt(data.generated_at)
-              setAiStreaming(!data.cached_analysis)
+          return streamP2PMarketAnalysis(
+            { side: analysisSide, range: "1h", notional, force, captchaToken, signal: controller.signal },
+            {
+              onMetadata: (data) => {
+                if (controller.signal.aborted) return
+
+                aiClassificationRef.current = {
+                  market_state: data.market_state,
+                  risk_level: data.risk_level,
+                  bolivar_outlook: data.bolivar_outlook ?? null,
+                }
+
+                setAiCached(data.cached_analysis)
+                setAiGeneratedAt(data.generated_at)
+                setAiStreaming(!data.cached_analysis)
+              },
+              onMetrics: (data) => {
+                if (controller.signal.aborted) return
+
+                setAiSnapshot(data.snapshot)
+                setAiIntraday(data.intraday)
+                setAiFxSupply(data.fx_supply_context)
+                setAiReading(data.market_reading ?? null)
+                setAiLoading(false)
+              },
+              onToken: (content) => {
+                if (controller.signal.aborted) return
+
+                setAiStreamedText((previous) => previous + content)
+              },
+              onDone: (data) => {
+                if (controller.signal.aborted) return
+
+                setAiAnalysis({
+                  headline: data.headline,
+                  summary: data.analysis_text,
+                  market_state: aiClassificationRef.current.market_state,
+                  risk_level: aiClassificationRef.current.risk_level,
+                  bolivar_outlook: aiClassificationRef.current.bolivar_outlook,
+                  observations: [],
+                })
+                setAiStreaming(false)
+                setAiLoading(false)
+              },
+              onError: (err) => {
+                if (controller.signal.aborted) return
+
+                // El texto recibido hasta aquí se conserva a propósito.
+                setAiStreaming(false)
+                setAiLoading(false)
+                setAiError(err.message)
+              },
             },
-            onMetrics: (data) => {
-              if (controller.signal.aborted) return
-
-              setAiSnapshot(data.snapshot)
-              setAiIntraday(data.intraday)
-              setAiFxSupply(data.fx_supply_context)
-              setAiReading(data.market_reading ?? null)
-              setAiLoading(false)
-            },
-            onToken: (content) => {
-              if (controller.signal.aborted) return
-
-              setAiStreamedText((previous) => previous + content)
-            },
-            onDone: (data) => {
-              if (controller.signal.aborted) return
-
-              setAiAnalysis({
-                headline: data.headline,
-                summary: data.analysis_text,
-                market_state: aiClassificationRef.current.market_state,
-                risk_level: aiClassificationRef.current.risk_level,
-                bolivar_outlook: aiClassificationRef.current.bolivar_outlook,
-                observations: [],
-              })
-              setAiStreaming(false)
-              setAiLoading(false)
-            },
-            onError: (err) => {
-              if (controller.signal.aborted) return
-
-              // El texto recibido hasta aquí se conserva a propósito.
-              setAiStreaming(false)
-              setAiLoading(false)
-              setAiError(err.message)
-            },
-          },
-        )
+          )
+        })
       } catch (err) {
         if (controller.signal.aborted) return
 
@@ -161,7 +177,7 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
         if (!controller.signal.aborted) setAiLoading(false)
       }
     },
-    [side, notional],
+    [side, notional, rewardFlow],
   )
 
   const openDrawer = useCallback(() => setAiOpen(true), [])
@@ -189,6 +205,7 @@ export function useP2PAiAnalysis(side: P2PSideSelection, notional: number) {
     aiAvailable,
     openDrawer,
     openHistory,
+    rewardFlow,
     drawerProps: {
       open: aiOpen,
       loading: aiLoading,

@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom"
 import AiHistorySheet from "./AiHistorySheet"
 import P2PAiDrawer from "./P2PAiDrawer"
 import type { P2PAiAnalysisController } from "./useP2PAiAnalysis"
+import AiRewardSheet from "../shared/AiRewardSheet"
 
 /**
  * Drawer de análisis IA + historial, compartidos por la vista Simple y
@@ -36,6 +37,7 @@ export default function MarketAiSheets({ ai }: { ai: P2PAiAnalysisController }) 
     <>
       <P2PAiDrawer {...ai.drawerProps} />
       <AiHistorySheet {...ai.historyProps} />
+      <AiRewardSheet {...ai.rewardFlow} />
     </>
   )
 }

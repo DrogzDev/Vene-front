@@ -24,6 +24,8 @@ import PriceHero from "../components/priceHistory/PriceHero"
 import SegmentedControl from "../components/priceHistory/SegmentedControl"
 import SourceChips from "../components/priceHistory/SourceChips"
 import AiAnalysisPanel from "../components/priceHistory/AiAnalysisPanel"
+import AiRewardSheet from "../components/shared/AiRewardSheet"
+import { useAiRewardFlow } from "../hooks/useAiRewardFlow"
 import {
   ChartSkeleton,
   EmptyState,
@@ -223,6 +225,8 @@ export default function PriceChartPage() {
     }
   }, [])
 
+  const rewardFlow = useAiRewardFlow()
+
   const runAnalysis = useCallback(
     async (options: { refresh?: boolean } = {}) => {
       aiRequestRef.current?.abort()
@@ -234,16 +238,29 @@ export default function PriceChartPage() {
       setAiError(null)
 
       try {
-        // El captcha solo se pide para refrescar: es la ruta que salta
-        // el caché y de verdad paga una inferencia.
-        const captchaToken = options.refresh
-          ? await getTurnstileToken("ai_refresh")
-          : undefined
+        // Al refrescar, primero hay que tener el gratis diario o un
+        // crédito de anuncio — si no hay ninguno, esto abre el sheet y
+        // espera a que el usuario lo complete (o cancele).
+        if (options.refresh) {
+          const granted = await rewardFlow.ensureEntitlement()
 
-        const result = await getMarketAnalysis(range, source, {
-          refresh: options.refresh,
-          captchaToken,
-          signal: controller.signal,
+          if (!granted || controller.signal.aborted) return
+        }
+
+        const result = await rewardFlow.runWithEntitlement(async () => {
+          // El captcha solo se pide para refrescar: es la ruta que
+          // salta el caché y de verdad paga una inferencia. Se manda
+          // siempre que haya refresh; el backend lo ignora si el
+          // crédito consumido termina eximido de captcha.
+          const captchaToken = options.refresh
+            ? await getTurnstileToken("ai_refresh")
+            : undefined
+
+          return getMarketAnalysis(range, source, {
+            refresh: options.refresh,
+            captchaToken,
+            signal: controller.signal,
+          })
         })
 
         if (controller.signal.aborted) return
@@ -269,7 +286,7 @@ export default function PriceChartPage() {
         if (!controller.signal.aborted) setAiLoading(false)
       }
     },
-    [range, source],
+    [range, source, rewardFlow],
   )
 
   function openAnalysis() {
@@ -531,6 +548,8 @@ export default function PriceChartPage() {
         onClose={() => setAiOpen(false)}
         onRefresh={() => runAnalysis({ refresh: true })}
       />
+
+      <AiRewardSheet {...rewardFlow} />
     </>
   )
 }
